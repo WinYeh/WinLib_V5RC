@@ -1,0 +1,21 @@
+CompileFlags:
+  # Strip ARM-specific flags that macOS clang doesn't support (IntelliSense only).
+  # These flags are still used by arm-none-eabi-gcc during actual compilation via the Makefile.
+  Remove:
+    - -mfloat-abi=*
+    - -mfpu=*
+    - -mcpu=*
+    - -mthumb
+    - -mno-thumb-interwork
+    - -munaligned-access
+    - -mno-unaligned-access
+  Add:
+    # Target ARM bare-metal so clangd understands the codebase context.
+    - -target
+    - arm-none-eabi
+    # Add newlib C headers (math.h, stdlib.h, etc.) — ARM toolchain puts them in include/, not usr/include/.
+    - -isystem
+    - /Users/winyeh/Library/Application Support/Code/User/globalStorage/sigbots.pros/install/pros-toolchain-macos/arm-none-eabi/include
+    # Add GCC internal includes (float.h, stddef.h, etc.).
+    - -isystem
+    - /Users/winyeh/Library/Application Support/Code/User/globalStorage/sigbots.pros/install/pros-toolchain-macos/lib/gcc/arm-none-eabi/14.3.1/include
