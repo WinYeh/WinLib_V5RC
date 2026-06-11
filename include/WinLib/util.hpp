@@ -31,6 +31,16 @@ enum class AngularDirection
 };
 
 /**
+ * @brief convert degree to radian
+ */
+double DegToRad(double angleInDeg);
+
+/**
+ * @brief convert radian to degree
+ */
+double RadToDeg(double angleInRad);
+
+/**
  * @brief Calculate Angle Error
  *
  * When turning, the angleError func calculates the error of the angle based on the assigned Angular Direction

@@ -5,6 +5,16 @@ double WinLib::xEe_Func(double input)
     return pow(std::fabs(input), M_e);  
 }
 
+double WinLib::DegToRad(double angleInDeg)
+{
+    return angleInDeg * M_PI / 180; 
+}
+
+double WinLib::RadToDeg(double angleInRad)
+{
+    return angleInRad * 180 / M_PI; 
+}
+
 double WinLib::angleError(double target, double curr, bool radians, WinLib::AngularDirection direction)
 {
     double error =  target - curr;

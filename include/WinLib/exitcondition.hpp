@@ -60,9 +60,36 @@ class ExitCondition
          * @endcode
          */
         void reset();
+        /**
+         * @brief change the allowed range mid-run
+         *
+         * Lets a route tighten/loosen its "good enough" window between movements
+         * without constructing a new ExitCondition. Also resets the timer so the
+         * new range gets a fresh countdown.
+         *
+         * @param newRange the new range in the same units as the input
+         */
+        void setRange(const float newRange);
+        /**
+         * @brief change the required time-in-range mid-run
+         *
+         * Same idea as setRange — useful when a particular phase of the auton
+         * wants a snappier or slower settle. Also resets the timer.
+         *
+         * @param newTime the new time-in-range, in milliseconds
+         */
+        void setTime(const int newTime);
+        /**
+         * @brief read the current allowed range / time-in-range.
+         *
+         * Used by ControllerSettings to copy the ExitCondition's values into
+         * its own flat float fields at construction time.
+         */
+        float getRange() const;
+        int   getTime()  const;
     protected:
-        const float range;
-        const int time;
+        float range;
+        int time;
         int startTime = -1;
         bool done = false;
 };

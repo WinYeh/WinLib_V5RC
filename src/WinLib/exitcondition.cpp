@@ -1,7 +1,7 @@
 #include <cmath>
 #include "pros/rtos.hpp"
 #include "WinLib/exitcondition.hpp"
-using namespace WinLib; 
+using namespace WinLib;
 
 ExitCondition::ExitCondition(const float range, const int time)
     : range(range),
@@ -12,14 +12,32 @@ bool ExitCondition::getExit() { return done; }
 bool ExitCondition::update(const float input) 
 {
     const int curTime = pros::millis();
-    if (std::fabs(input) > range) startTime = -1;
-    else if (startTime == -1) startTime = curTime;
-    else if (curTime >= startTime + time) done = true;
+    if (std::fabs(input) > range) 
+        startTime = -1;
+    else if (startTime == -1) 
+        startTime = curTime;
+    else if (curTime >= startTime + time) 
+        done = true;
     return done;
 }
 
-void ExitCondition::reset() 
+void ExitCondition::reset()
 {
     startTime = -1;
     done = false;
 }
+
+void ExitCondition::setRange(const float newRange)
+{
+    range = newRange;
+    reset();
+}
+
+void ExitCondition::setTime(const int newTime)
+{
+    time = newTime;
+    reset();
+}
+
+float ExitCondition::getRange() const { return range; }
+int   ExitCondition::getTime()  const { return time; }

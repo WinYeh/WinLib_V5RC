@@ -25,15 +25,41 @@ This is a VEX robotics project using the PROS framework, structured with two int
 - WinLib intentionally simplifies this for teachability
 
 ### Design Constraints
-- **Minimal OOP:** Classes are allowed only for small, self-contained utilities (PID, Timer, ExitCondition, Pose). No Chassis class. No class inheritance hierarchies.
-- **Free functions for new code:** Odometry and movement functions should be namespace-level free functions, not class methods.
-- **Lateral + Angular motions only:** No curvature motions, boomerang controller, or pure pursuit — these are too complex for the target audience to understand and modify.
-- **Blocking motions:** Movement functions run synchronously (no async tasks, no motion queue). Students can read autonomous routes top-to-bottom.
+- **Chassis class for movement/opcontrol; free functions for odometry.** A `Chassis` class is the public API for autonomous motions, opcontrol drive, and chassis-level utilities (`calibrate`, `setBrakeMode`, etc.). Students coming from VEXcode are already used to `chassis.driveFor(...)`-style calls, so the `chassis.` prefix is a feature (it tells you what's being acted on), not noise. Odometry stays as free functions in the `WinLib::` namespace (`getPose`, `setPose`, `update`, `init`) with module-level static state inside `odom.cpp`. The `Chassis` class **calls** the odom API when it needs the robot's pose — it does **not** own the pose. Small self-contained utility classes are still allowed (PID, Timer, ExitCondition, Pose, TrackingWheel). POD config structs (`Drivetrain`, `OdomSensors`) are preferred over OOP for plain data carriers — no methods, no inheritance. `ControllerSettings` is a thin composition class that holds a `PID` and two `ExitCondition` objects (no logic of its own, just a named bundle of subcomponents). No class inheritance hierarchies.
+- **Lateral, Angular, and Boomerang motions only:** Boomerang is allowed (drive-to-pose with a target heading via a carrot point) — added for the 2026-2027 Override season, where the complex field layout rewards score-on-the-move autonomous routes. **No pure pursuit, no arc/curvature primitives** — these still add too much teaching burden (path generation, lookahead tuning, intersection math) for marginal benefit.
+- **Blocking motions:** Movement functions run synchronously (no async tasks, no motion queue). Students can read autonomous routes top-to-bottom. (Async support may be revisited in the future — see *Deferred Decisions*.)
+- **Volts (0–12 V) is the motor-power unit.** Movement param defaults (`maxSpeed`, `minSpeed`) are in volts, with `12.0` as the hardware ceiling. Inside Chassis motion methods, drive the motors with `pros::Motor::move_voltage(mV)` (mV = volts × 1000), not `move(pwm)`. Opcontrol helpers (`tank`/`arcade`/`curvature`) still take joystick-shaped int args (-127..127) and convert internally.
 - **Teachability over performance:** Every design choice should prioritize "can a 10th grader understand this?" over competitive optimization.
 
-### Planned Architecture (Files to Add)
-- `include/WinLib/odom.hpp` + `src/WinLib/odom.cpp` — Odometry system (free functions: init, update, getPose, setPose)
-- `include/WinLib/movement.hpp` + `src/WinLib/movement.cpp` — Movement functions (free functions: moveTo, moveFor, turnTo, turnToPoint)
+### Planned Architecture
+Chassis-related code lives under a `chassis/` subfolder, separate from general utilities. Status labels below: **[done]**, **[needs fixes]**, **[to add]**.
+
+**Headers — `include/WinLib/`**
+- **[done]** `pid.hpp`, `pose.hpp`, `timer.hpp`, `exitcondition.hpp`, `util.hpp` — small self-contained utilities.
+- (No separate `chassis/config.hpp`.) The config types — `Drivetrain` POD (motor groups, track width, wheel diameter, gear ratio, `horizontalDrift`) and `ControllerSettings` (composition class holding one `PID` and two `ExitCondition` objects — `smallExit` for tight final-approach, `largeExit` for the wider "settled enough" window) — live inside `chassis/chassis.hpp` alongside the `Chassis` class itself. (`OdomSensors` still lives separately in `chassis/OdomSensors.hpp`.)
+- **[done]** `chassis/OdomSensors.hpp` — holds the `Omniwheel` diameter constants, the `TrackingWheel` class (wraps a `pros::Rotation` sensor only — ADI encoders / motor groups intentionally unsupported, since modern VEX doesn't use them), and the `OdomSensors` class (vertical wheel, horizontal wheel, IMU pointers). Units: wheel diameter is passed in inches and stored as mm; offset is in mm; `getDistanceTraveled()` returns mm.
+- **[done]** `chassis/Odom.hpp` — free-function declarations: `getPose`, `setPose`, `getSpeed`, `update`, `init`. Odom is a standalone module; the `Chassis` class calls these from its movement methods. (`getLocalSpeed`/`estimatePose` were removed; a Kalman filter is a future maybe.)
+- **[needs fixes]** `chassis/chassis.hpp` — declares `class WinLib::Chassis`. Constructor: `Chassis(Drivetrain, ControllerSettings lateral, ControllerSettings angular)`. Methods: `calibrate`, `setBrakeMode`, `resetLocalPosition`, `moveToPoint`, `moveFor`, `turnToHeading`, `turnToPoint`, `boomerang`, `tank`, `arcade`, `curvature`. Currently a Genesis copy-paste; needs slimming down (remove `asset` / `motionPlus` / `driveCurve` includes, the swing methods, all `*Plus` methods, the motion queue infrastructure, every `bool async` param, `slew`, the duplicate `AngularDirection` enum).
+
+**Sources — `src/WinLib/`**
+- **[done]** `pid.cpp`, `pose.cpp`, `timer.cpp`, `exitcondition.cpp`, `util.cpp`.
+- **[done]** `chassis/OdomSensors.cpp`.
+- **[mostly done]** `chassis/Odom.cpp` — Pilons-style tracking running in a `pros::Task` at ~10ms. Heading comes from the IMU only (a single horizontal tracking wheel can't measure heading on its own). Remaining: (1) no way to inject real sensors yet — `init()` takes no args and `odomSensors` is default-constructed with nullptrs, to be wired up later (see Deferred Decisions); (2) thread-safety deferred (see Deferred Decisions); (3) the `deltaVertical`/`deltaHorizontal` locals are now unused and can be collapsed with `deltaX`/`deltaY`.
+- **[to add]** `chassis/chassis.cpp` — the small "glue" methods of `Chassis`: constructor, `calibrate`, `setBrakeMode`, `resetLocalPosition`.
+- **[to add]** `chassis/opcontrol.cpp` — `Chassis::tank`, `Chassis::arcade`, `Chassis::curvature`.
+- **[to add]** `chassis/movement/` — one `.cpp` file per autonomous motion (each defines a single method of `Chassis`, e.g. `void WinLib::Chassis::moveToPoint(...)`). C++ allows class methods to be split across multiple `.cpp` files — the linker stitches them together — so each file stays short and focused on one motion's math.
+  - `move_to_point.cpp`
+  - `move_for.cpp`
+  - `turn_to_heading.cpp`
+  - `turn_to_point.cpp`
+  - `boomerang.cpp`
+
+### Deferred Decisions
+- **Command-based programming system (async task management).** Explicitly deferred. The plan is to first write real autonomous routes using the standard pattern — blocking chassis motions plus `pros::Task` for parallel subsystem work (intake, lift, etc.) — and revisit whether a command-based abstraction is worth building only after that experience surfaces a real need. Do not propose or build command-based infrastructure unless the user explicitly asks.
+- **Odometry thread-safety (`pros::Mutex`).** The tracking task writes `odomPose`/`odomSpeed` every ~10ms while movement code reads them via `getPose`/`getSpeed`, so a reader can catch a half-updated ("torn") pose — e.g. a new `x` paired with an old `y`. The fix is a single `pros::Mutex` (ideally via `std::lock_guard`) wrapping the publish step in `update()` **and** the reads in every getter/setter — a lock only works if both sides take it. Deferred for now: the race costs at most one stale axis for one 10ms tick, acceptable for current routes. Revisit if a movement ever misbehaves in a way traceable to a torn pose read. Do not add the mutex unless the user asks.
+- **Odom sensor injection.** `WinLib::init()` starts the tracking task, but `odomSensors` stays `(nullptr, nullptr, nullptr)`, so nothing actually updates yet. The mechanism for handing real sensors to the odom module is intentionally being designed separately (the user has a specific approach in mind) — do not add an `init(OdomSensors)` overload or similar unless the user asks.
+- **Drive curves (`DriveCurve` / `ExpoDriveCurve`).** Joystick→motor input shaping (deadband + exponential curve) for opcontrol. Genesis ships this as a small class hierarchy bundled into the Chassis constructor. WinLib temporarily drops it — `Chassis::arcade` / `tank` / `curvature` will use raw linear joystick input until autonomous motion work settles. Will return in a dedicated `driveCurve.hpp` / `.cpp` once the auton motions are in. Do not add drive-curve code to `chassis.hpp` in the meantime.
+- **Async motion support / motion queue.** WinLib is currently blocking-only by design (motions run synchronously, no `pros::Task`, no queue, no `cancelMotion`/`waitUntilDone`/`async` param). The user has flagged this as a possible future addition — if/when chained-motion routes outgrow the blocking model, this becomes a real conversation. For now, the rule stands: no async, no queue, no `bool async = true` params. Revisit only on explicit request.
 
 ## How Claude Should Respond
 
@@ -48,13 +74,35 @@ This is a VEX robotics project using the PROS framework, structured with two int
 - Prefer clarity over cleverness
 - Add comments to non-obvious logic
 - Respect the two-layer architecture: WinLib should not depend on robot-specific config
-- Use free functions in the `WinLib` namespace for all new code (no new classes)
+- Movement and opcontrol code lives as methods of the `Chassis` class. Odometry stays as free functions in the `WinLib::` namespace. Don't mix the two — Chassis methods should call into the odom API, not duplicate odom state.
 - Movement functions should be straightforward: create PID, loop until done, stop motors
 
 ### Things to Avoid
 - Do not use dense academic language
 - Do not assume prior knowledge of C++ concepts without explaining them first
 - Do not skip analogies when the user asks for them
-- Do not introduce new classes — use free functions with module-level static state
-- Do not add curvature/boomerang/pure pursuit motions unless explicitly asked
+- Do not move the odom module's static state (`odomPose`, `odomSpeed`, `odomSensors`, `prevVertical`, etc.) into `Chassis` member variables. Odom is a standalone free-function module; `Chassis` calls into it (`WinLib::getPose()` etc.) rather than owning the pose. Keeps the odom math readable in isolation and lets the Chassis class stay focused on movement.
+- Do not add curvature/arc/pure pursuit motions. (Boomerang is allowed for the Override season.)
 - Do not add async motions or motion queues
+
+### Tracking Divergences from Reference Libraries
+`CHANGES_FROM_REFERENCE.md` (in the project root) is the running log of every place WinLib intentionally differs from Genesis 78181A and LemLib. It exists so a future reader can compare the two libraries side-by-side and see *why* every difference was made.
+
+**Read it before** adding new chassis / movement / odometry code, changing a public API signature in those modules, or porting any non-trivial structure (struct, macro, build rule, header) from the reference. Some divergences are *forward-looking traps* — e.g. the `asset` / `ASSET()` macro system is forbidden even though pure pursuit itself is currently forbidden — and you will not find them anywhere else in this codebase.
+
+**When to update it:**
+- A new file is added under `include/WinLib/` or `src/WinLib/` that has no Genesis/LemLib counterpart, or whose counterpart was meaningfully simplified.
+- A class member, method, parameter, or return type is removed or renamed relative to the reference.
+- An algorithm or fallback path is simplified or replaced (e.g. the heading-priority simplification, the `Odom::update()` consolidation).
+- A bug in the inherited code is fixed and the fix changes observable behavior.
+
+**When NOT to update it:**
+- Pure formatting / comment / whitespace cleanups.
+- Bug fixes to code WinLib itself wrote (i.e. not inherited from the reference).
+- Work-in-progress edits that haven't settled — wait until the divergence is intentional and stable.
+
+**How to update it:**
+- Append a new entry in the appropriate section (Architecture, Sensors, Odometry, etc.), using the changelog template at the bottom of that file (`### Title` → `Reference:` → `WinLib:` → `Why:`).
+- Do not delete old entries when behavior changes again — instead, add a new entry that supersedes the old one, and leave the original as a historical record.
+
+After making any change that fits the "When to update" list above, mention in your reply that `CHANGES_FROM_REFERENCE.md` was updated (or ask the user whether the change is intentional enough to log, if uncertain).
