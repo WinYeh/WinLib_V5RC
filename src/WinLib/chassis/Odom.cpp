@@ -8,13 +8,16 @@
 #include "WinLib/util.hpp"
 #include "WinLib/chassis/Odom.hpp"
 #include "WinLib/chassis/OdomSensors.hpp"
+#include "config.h"   // for the global `chassis` — odom reads its OdomSensors through it.
+                      // Single source of truth: `chassis.odomSensors` lives in config.cpp.
 
 // tracking thread
 pros::Task* trackingTask = nullptr;
 
-// global variables
-// drivetrain instance (initially exists, not supported by this lib)
-WinLib::OdomSensors odomSensors(nullptr, nullptr, nullptr); // the sensors to be used for odometry
+// global variables (odom's running state — calculated each tick).
+// NOTE: there is no `odomSensors` here on purpose. The sensors live on the
+// Chassis (`chassis.odomSensors`), and update() reads through that. Keeping a
+// local copy here would just create a second source of truth to keep in sync.
 WinLib::Pose odomPose(0, 0, 0); // the pose of the robot
 WinLib::Pose odomSpeed(0, 0, 0); // the speed of the robot
 WinLib::Pose odomLocalSpeed(0, 0, 0); // the local speed of the robot
@@ -50,23 +53,26 @@ WinLib::Pose WinLib::getSpeed(bool radians) {
    but they are not implemented by genesis and therefore are deleted)  
 */
 
-void WinLib::update() 
+void WinLib::update()
 {
-    // trackingWheels declaration
-    WinLib::TrackingWheel* verticalWheel = odomSensors.vertical;
-    WinLib::TrackingWheel* horizontalWheel = odomSensors.horizontal;
+    // Pull sensor pointers from the chassis (the single source of truth).
+    // If chassis hasn't been constructed yet (very early boot), or any side
+    // is unwired, the null-guards below handle it gracefully.
+    WinLib::TrackingWheel* verticalWheel   = chassis.odomSensors.vertical;
+    WinLib::TrackingWheel* horizontalWheel = chassis.odomSensors.horizontal;
+    pros::Imu*             imu             = chassis.odomSensors.imu;
 
-    // may add particle filter in the future 
+    // may add particle filter in the future
     // get the current sensor values
     float verticalRaw = 0;
     float horizontalRaw = 0;
     float imuRaw = 0;
-    if (verticalWheel != nullptr) 
+    if (verticalWheel != nullptr)
         verticalRaw = verticalWheel->getDistanceTraveled();
-    if (horizontalWheel != nullptr) 
+    if (horizontalWheel != nullptr)
         horizontalRaw = horizontalWheel->getDistanceTraveled();
-    if (odomSensors.imu != nullptr) 
-        imuRaw = DegToRad(odomSensors.imu->get_rotation());
+    if (imu != nullptr)
+        imuRaw = DegToRad(imu->get_rotation());
 
     // calculate the change in sensor values
     float deltaVertical = verticalRaw - prevVertical;
@@ -89,7 +95,7 @@ void WinLib::update()
     // (Dual parallel vertical wheels and drivetrain tracking were dropped: the former is
     //  uncommon in modern vex, the latter is out of scope for this lib.)
     float heading = odomPose.theta;
-    if (odomSensors.imu != nullptr)
+    if (imu != nullptr)
         heading += deltaImu;
     // else: no heading source available, heading remains unchanged
     float deltaHeading = heading - odomPose.theta;

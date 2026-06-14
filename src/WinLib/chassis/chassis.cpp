@@ -15,28 +15,36 @@ using namespace WinLib;
 
 /* ---- constructor ---- */
 // Just copies the config into our member fields. The Drivetrain holds raw
-// pointers to user-owned MotorGroups, so the user must keep those alive for
-// the lifetime of the Chassis (which is normally a file-scope global).
+// pointers to user-owned MotorGroups (and the DSR holds raw pointers to
+// pros::Distance sensors), so the user must keep those alive for the
+// lifetime of the Chassis (which is normally a file-scope global).
 Chassis::Chassis(Drivetrain drivetrain,
+                 OdomSensors odomSensors,
                  ControllerSettings lateralSettings,
-                 ControllerSettings angularSettings)
+                 ControllerSettings angularSettings,
+                 DSR dsr)
     : drivetrain(drivetrain),
+      odomSensors(odomSensors),
       lateralSettings(lateralSettings),
-      angularSettings(angularSettings) {}
+      angularSettings(angularSettings),
+      dsr(dsr) {}
 
 
 /* ---- calibrate ---- */
-// Starts the odom tracking task. IMU/tracking-wheel calibration is intentionally
-// not wired up here yet — odomSensors lives inside the odom module as
-// module-level static state, and the mechanism for injecting real sensors into
-// it is being designed separately (see CLAUDE.md § Deferred Decisions: "Odom
-// sensor injection"). Once that injection lands, this method should also call
-// odomSensors.imu->reset(true) when calibrateIMU is true, plus reset the
-// tracking wheels' encoder positions.
+// Calibrate the IMU (blocking ~3 seconds), zero the tracking-wheel encoders,
+// then spawn the odom tracking task. Each branch is null-guarded so a
+// partially-wired robot (no horizontal wheel, etc.) still works.
+//
+// Note on order: IMU calibration must finish BEFORE the tracking task starts,
+// otherwise the task's first ticks would read a non-calibrated IMU. Wheel
+// resets can come either side of calibration — putting them before init() so
+// the task's first read sees a clean (0, 0, 0) starting point.
 void Chassis::calibrate(bool calibrateIMU) {
-    // (void) silences the "unused parameter" warning until the IMU
-    // calibration is wired up.
-    (void)calibrateIMU;
+    if (calibrateIMU && odomSensors.imu != nullptr) {
+        odomSensors.imu->reset(true);   // true = blocking
+    }
+    if (odomSensors.vertical   != nullptr) odomSensors.vertical  ->reset();
+    if (odomSensors.horizontal != nullptr) odomSensors.horizontal->reset();
     WinLib::init();   // idempotent — spawns the tracking task once
 }
 
@@ -50,14 +58,52 @@ void Chassis::setBrakeMode(pros::motor_brake_mode_e mode) {
 }
 
 
-/* ---- resetLocalPosition ---- */
-// Zero out (x, y) without touching theta. Useful for routes that want to
-// re-anchor the field-relative origin partway through (e.g. after a wall
-// alignment). We go through the odom module's public API rather than poking
-// at its statics directly.
-void Chassis::resetLocalPosition() {
-    Pose p = WinLib::getPose();
-    p.x = 0;
-    p.y = 0;
-    WinLib::setPose(p);
+/* ---- resetPosition ---- */
+// Delegates to the DSR module — it reads the 4 distance sensors and the
+// current IMU heading, computes the robot's true (x, y) on the field, and
+// pushes that back into the odom module via WinLib::setPose(). The robot's
+// heading is left untouched (the IMU is the source of truth for heading).
+//
+// See WinLib/chassis/DSR.hpp for the algorithm and assumptions.
+void Chassis::resetPosition() {
+    dsr.reset();
+}
+
+
+/* ---- move_voltage ----
+ * Drive each side at a specific voltage. Bypasses all PID and motion logic —
+ * useful for testing, calibration, and writing custom motion routines that
+ * need to set raw motor outputs directly.
+ *
+ * Note the parameter ORDER: left first, then right. The values are in volts
+ * (typically -12.0 .. +12.0). PROS's `move_voltage` takes millivolts, so we
+ * scale by 1000 here. PROS clips inputs outside ±12000 mV to those bounds
+ * automatically, so no clamping is needed on our side.
+ *
+ * Null-guarded against partially-wired drivetrains.
+ */
+void Chassis::move_voltage(float left, float right) 
+{
+    if (drivetrain.leftMotors  != nullptr) 
+        drivetrain.leftMotors ->move_voltage(left  * 1000);
+    if (drivetrain.rightMotors != nullptr) 
+        drivetrain.rightMotors->move_voltage(right * 1000);
+}
+
+
+/* ---- move_percentage ----
+ * Drive each side at a percentage of max voltage. 100 = 12 V (full forward),
+ * -100 = -12 V (full reverse), 0 = stop. Bypasses PID and motion logic.
+ *
+ * Same parameter order as move_voltage: left first, then right.
+ *
+ * Conversion: percentage × 12000 mV / 100 = percentage × 120 mV. PROS clips
+ * overflow automatically.
+ */
+void Chassis::move_percentage(float left, float right) 
+{
+    if (drivetrain.leftMotors  != nullptr) 
+        drivetrain.leftMotors ->move_voltage(left  * 120);
+    if (drivetrain.rightMotors != nullptr) 
+        drivetrain.rightMotors->move_voltage(right * 120);
 }

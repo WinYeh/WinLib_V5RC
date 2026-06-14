@@ -58,45 +58,7 @@ class PID
          * }
          * @endcode
          */
-        float compute(float error);
-
-        /**
-         * @brief Compute the PID of "Lateral"
-         *
-         * @param error target minus position - AKA error
-         * @return float output
-         *
-         * @b Example
-         * @code {.cpp}
-         * void opcontrol() {
-         *     // create a PID
-         *     PID pid(5, 0, 20);
-         *     // give the pid a test input
-         *     // the pid will then return an output
-         *     float output = pid.update(10);
-         * }
-         * @endcode
-         */
-        float compute_l(float error);
-
-        /**
-         * @brief Compute the PID of "Angular"
-         *
-         * @param error target minus position - AKA error
-         * @return float output
-         *
-         * @b Example
-         * @code {.cpp}
-         * void opcontrol() {
-         *     // create a PID
-         *     PID pid(5, 0, 20);
-         *     // give the pid a test input
-         *     // the pid will then return an output
-         *     float output = pid.update(10);
-         * }
-         * @endcode
-         */
-        float compute_a(float error);
+        float compute(float error); 
 
         /**
          * @brief reset integral, derivative, and prevTime

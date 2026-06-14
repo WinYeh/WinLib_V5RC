@@ -8,6 +8,7 @@
 #include "WinLib/pid.hpp"
 #include "WinLib/exitcondition.hpp"
 #include "WinLib/chassis/OdomSensors.hpp"        // IWYU pragma: keep
+#include "WinLib/chassis/DSR.hpp"                // IWYU pragma: keep
 
 namespace WinLib {
 
@@ -176,8 +177,10 @@ struct BoomerangParams {
 class Chassis {
 public:
     Chassis(Drivetrain drivetrain,
+            OdomSensors odomSensors,
             ControllerSettings lateralSettings,
-            ControllerSettings angularSettings);
+            ControllerSettings angularSettings,
+            DSR dsr);
 
     // ---- setup / one-shots ----
     /** Calibrate the IMU. Call once in initialize(). */
@@ -185,7 +188,28 @@ public:
     /** Set the drivetrain motors' brake mode. */
     void setBrakeMode(pros::motor_brake_mode_e mode);
     /** Reset the robot's (x, y) without touching heading. */
-    void resetLocalPosition();
+    void resetPosition();
+
+    // ---- direct motor control (raw, bypasses PID and motion logic) ----
+    /**
+     * @brief Drive each side at a specific voltage.
+     *
+     * Parameter order is **right first, then left**.
+     *
+     * @param right voltage for the right side, in volts (typical ±12.0)
+     * @param left  voltage for the left side,  in volts
+     */
+    void move_voltage(float right, float left);
+    /**
+     * @brief Drive each side at a percentage of max voltage (12 V).
+     *
+     * 100 = full forward (12 V), -100 = full reverse (-12 V), 0 = stop.
+     * Parameter order is **right first, then left**.
+     *
+     * @param right percentage for the right side (-100 to +100)
+     * @param left  percentage for the left side  (-100 to +100)
+     */
+    void move_percentage(float right, float left);
 
     // ---- autonomous motions (all blocking) ----
     void moveToPoint  (float x, float y,              int timeout, LateralParams   params = {});
@@ -195,17 +219,25 @@ public:
     void boomerang    (float x, float y, float theta, int timeout, BoomerangParams params = {});
 
     // ---- opcontrol drive ----
-    /** Left/right joystick → left/right motors. Linear, no drive curve (deferred). */
-    void tank     (int left, int right);
-    /** Throttle + steer joysticks → motors. steerBias 0=throttle-priority, 1=steer-priority. */
-    void arcade   (int throttle, int turn, float steerBias = 0.5);
-    /** Throttle + curvature joysticks. Steer input controls curvature, not raw turn. */
-    void curvature(int throttle, int turn);
+    /**
+     * @brief Single-method arcade drive — the simplest possible joystick control.
+     *
+     * Raw joystick input, no deadband, no drive curve, no scaling. Wires:
+     *   left  motor = throttle + turn
+     *   right motor = throttle - turn
+     *
+     * Call this once per opcontrol loop tick with the controller's analog
+     * axis values (typically axis 3 = left-stick-Y for throttle and axis 1
+     * = right-stick-X for turn).
+     */
+    void arcade(float throttle, float turn);
 
     // ---- runtime-tunable config (public on purpose) ----
     Drivetrain         drivetrain;
+    OdomSensors        odomSensors;   // single source of truth — odom.cpp reads through chassis
     ControllerSettings lateralSettings;
     ControllerSettings angularSettings;
+    DSR                dsr;
 };
 
 } // namespace WinLib

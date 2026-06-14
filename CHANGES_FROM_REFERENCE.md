@@ -16,10 +16,10 @@ WinLib's north star is teachability for a high-school team in their first PROS s
 
 ## Architecture
 
-### Hybrid ownership — `Chassis` class for movement, free functions for odom
-- **Reference:** LemLib/Genesis put **everything** inside the `Chassis` class — the odometry task is started by `chassis.calibrate()`, the pose lives in `chassis.pose` (a member), and `chassis.getPose()` reads from that member.
-- **WinLib:** Movement, opcontrol, and chassis-level utilities live on the `Chassis` class (`chassis.moveToPoint(...)`, `chassis.tank(...)`, etc.). **Odometry stays as namespace-level free functions** in `WinLib::` (`getPose`, `setPose`, `update`, `init`) with module-level static state inside `odom.cpp`. The `Chassis` class **calls** the odom API; it does not own the pose.
-- **Why:** Two reasons. (1) The odom math is self-contained and reads cleanly on its own; folding it into Chassis would mean every odom edit also loads the Chassis mental model. (2) Splitting ownership lets odom evolve independently — e.g. the deferred sensor-injection mechanism doesn't have to touch the Chassis constructor.
+### Split ownership — `Chassis` owns sensors + the public API; `odom.cpp` owns the running math
+- **Reference:** LemLib/Genesis put **everything** inside the `Chassis` class — sensors, the tracking task, the pose state, and `getPose()` all live as Chassis members.
+- **WinLib:** Movement, opcontrol, chassis-level utilities, AND the `OdomSensors` configuration all live on the `Chassis` class. But the **odometry running state** (`odomPose`, `odomSpeed`, `prevVertical`, etc.) and the tracking task itself stay in `odom.cpp` as module-level statics. The public odom API is namespace-level free functions (`WinLib::getPose`, `setPose`, `update`, `init`). `odom.cpp` reads the sensors by `#include "config.h"` and reaching through the global `chassis.odomSensors` — there's only one copy of the OdomSensors in the whole program.
+- **Why:** Two competing goals. (1) Odom math is self-contained and reads cleanly on its own — folding it into Chassis would mean every odom edit also loads the Chassis mental model. So the math + running state stay in `odom.cpp`. (2) Sensor configuration is robot-specific and lives naturally with the rest of the chassis config — making it a Chassis member means `chassis.calibrate()` can handle IMU calibration and wheel reset in one call, and the user has one obvious place to read or change it. The compromise: `odom.cpp` depends on the application's `config.h` (mild layering violation), but in exchange there's zero data duplication and zero sensor-injection boilerplate.
 
 ### Blocking motions only — no motion queue, no async
 - **Reference:** LemLib enqueues motions; they run on a background `pros::Task`.
@@ -29,6 +29,11 @@ WinLib's north star is teachability for a high-school team in their first PROS s
 ### No command-based programming system
 - **Reference:** LemLib has been experimenting with command-based abstractions.
 - **WinLib:** Deferred until writing real routes surfaces a concrete need.
+
+### Opcontrol reduced to a single arcade method
+- **Reference:** Genesis/LemLib offers three opcontrol drive helpers — `tank(left, right, disableDriveCurve)`, `arcade(throttle, turn, disableDriveCurve, desaturateBias)`, and `curvature(throttle, turn, disableDriveCurve)`. Each one runs the joystick input through a configurable `DriveCurve` (deadband + exponential curve) before sending to the motors.
+- **WinLib:** Only `Chassis::arcade(int throttle, int turn)`. Classic arcade mixing (`left = throttle + turn`, `right = throttle - turn`) with **raw** joystick input — no deadband, no drive curve, no scaling. The conversion to motor voltage is one linear line per side (`mV = joystick * 12000 / 127`), and `pros::Motor::move_voltage` clips overflow automatically. `tank` and `curvature` are not included.
+- **Why:** Teaching focus. New PROS drivers can read the one method top-to-bottom and understand exactly what the joystick is doing to the wheels. Tank drive is the same arcade math with different input wiring (the driver can replicate it in their own opcontrol loop if they want); curvature drive is a niche control scheme that introduces lookahead complexity for marginal driver-experience gain. Drive curves return later in their own file (see *Pending / Deferred*).
 
 ### Motion set is intentionally limited
 - **Reference:** LemLib includes pure pursuit, arc/curvature primitives, ramsete-style controllers, etc.
@@ -57,6 +62,11 @@ WinLib's north star is teachability for a high-school team in their first PROS s
 - **Reference (and a common Genesis bug):** Various forks divide encoder ticks by `360` or `60`, which assumes the sensor reports degrees or RPM.
 - **PROS reality:** `pros::Rotation::get_position()` and `get_velocity()` both report **centidegrees** / **centidegrees per second**. One full wheel rotation = 36,000.
 - **WinLib:** Divisor is `36000`. Diameter is stored in inches; the function multiplies by `25.4` so the **output is in mm / mm/s**. Header comments and the function docs reflect this.
+
+### New: `DSR` (Distance Sensor Reset) — absolute position fix from 4 distance sensors
+- **Reference:** Genesis/LemLib has no equivalent. Their odometry is tracking-wheel + IMU only; once accumulated drift is in the pose, there's no built-in way to scrub it.
+- **WinLib:** New class `WinLib::DSR` in `chassis/DSR.hpp` / `.cpp`. Wraps 4 `pros::Distance*` sensors (one on each side of the robot) plus the per-sensor mm offset from the robot's tracking center. `dsr.reset()` uses the IMU heading + ray–wall intersection math to figure out which wall each sensor is hitting (works at **any** heading, not just cardinal), then picks the closest valid reading per axis and overwrites the odom (x, y) via `WinLib::setPose()`. Heading is left untouched (the IMU is the source of truth for heading). Held by `Chassis` as a public member; `Chassis::resetLocalPosition()` is now a thin delegate to `dsr.reset()`.
+- **Why:** Odometry drifts. After 60+ seconds of an auton route, the (x, y) error can be measured in inches. Distance sensors give an absolute fix against the field walls — DSR is the team's "scrub the drift" button. The any-heading design matters because real auton routes don't pause at perfect cardinal angles for the sake of sensor calibration.
 
 ### `OdomSensors` holds one wheel per axis, not a pair
 - **Reference:** LemLib stores `vertical1`, `vertical2`, `horizontal1`, `horizontal2` so the Pilons differential heading formula has two parallel wheels to subtract.
@@ -163,10 +173,11 @@ The inherited two-block layout updated `prevVertical` / `prevHorizontal` *betwee
 These are tracked in `CLAUDE.md` § *Deferred Decisions*; listed here so this doc stays a one-stop reference:
 
 - **Odometry thread-safety** (`pros::Mutex` around `odomPose` / `odomSpeed`).
-- **Odom sensor injection** — `WinLib::init()` currently leaves `odomSensors` as `(nullptr, nullptr, nullptr)`. The injection mechanism is being designed separately.
+- ~~**Odom sensor injection**~~ — **resolved**. `OdomSensors` is now a member of `Chassis`, initialized via the constructor, and `odom.cpp` reads through `chassis.odomSensors` by `#include "config.h"`.
 - **Kalman filter pass** over local speed.
 - **Command-based abstraction.**
 - **Async motion support / motion queue.** Currently disallowed. Flagged by Winyeh as a possible future addition once blocking-only routes show their limits. Until then: no `pros::Task`-backed motions, no queue, no `bool async` params, no `waitUntilDone`/`cancelMotion`.
+- **Dual-IMU averaging.** The robot has two IMUs declared (`imu1`, `imu2`) but only `imu1` is wired into `OdomSensors.imu`. Averaging both for better heading accuracy is the intent. Naive average of two angles breaks at the 0°/360° wraparound (`1° + 359°` averages to 180°, should be 0°). Two viable solutions: (a) since odom uses `pros::Imu::get_rotation()` (unbounded — accumulates past 360°), a plain mean works correctly as long as both IMUs are reset together at calibration; (b) compute a circular average via `atan2(sin(a) + sin(b), cos(a) + cos(b))`. Implementation shape: add a second `pros::Imu*` field to `OdomSensors`, then average inside `Odom.cpp::update()`. Not yet built — needs an explicit ask.
 
 ---
 
