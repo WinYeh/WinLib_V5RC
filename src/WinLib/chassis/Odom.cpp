@@ -27,10 +27,19 @@ float prevHorizontal = 0;
 float prevImu = 0;
 
 WinLib::Pose WinLib::getPose(bool radians) {
-    if (radians) 
+    if (radians)
         return odomPose;
-    else 
+    else
         return WinLib::Pose(odomPose.x, odomPose.y, RadToDeg(odomPose.theta));
+}
+
+float WinLib::getHeading(bool radians) {
+    // odomPose.theta is unbounded (it accumulates past 360°), so wrap it into
+    // [0, 360) in degrees, then convert to radians if asked. fmod can return a
+    // negative value, so add a full turn back if it does.
+    float heading = std::fmod(getPose(false).theta, 360.0f);
+    if (heading < 0) heading += 360.0f;
+    return radians ? DegToRad(heading) : heading;
 }
 
 void WinLib::setPose(WinLib::Pose pose, bool radians) {
@@ -53,14 +62,14 @@ WinLib::Pose WinLib::getSpeed(bool radians) {
    but they are not implemented by genesis and therefore are deleted)  
 */
 
-void WinLib::update()
+void WinLib::OdomUpdate()
 {
     // Pull sensor pointers from the chassis (the single source of truth).
     // If chassis hasn't been constructed yet (very early boot), or any side
     // is unwired, the null-guards below handle it gracefully.
     WinLib::TrackingWheel* verticalWheel   = chassis.odomSensors.vertical;
     WinLib::TrackingWheel* horizontalWheel = chassis.odomSensors.horizontal;
-    pros::Imu*             imu             = chassis.odomSensors.imu;
+    WinLib::CustomIMU*     imu             = chassis.odomSensors.imu;
 
     // may add particle filter in the future
     // get the current sensor values
@@ -144,7 +153,7 @@ void WinLib::update()
     odomSpeed.theta = ema((odomPose.theta - prevPose.theta) / 0.01, odomSpeed.theta, 0.95);
 }
 
-void WinLib::init() {
+void WinLib::OdomInit() {
     if (trackingTask == nullptr) 
     {
         trackingTask = new pros::Task 
@@ -153,7 +162,7 @@ void WinLib::init() {
             {
                 while (true) 
                 {
-                    update();
+                    WinLib::OdomUpdate();
                     pros::delay(10);
                 }
             }

@@ -17,6 +17,13 @@ class PID
     float integral = 0;
     float prevError = 0;
 
+    // last computed P / I / D term contributions. compute() builds the output
+    // as p_term + i_term + d_term and saves each here so debugPID can print the
+    // breakdown while tuning. 0 until the first compute().
+    float p_term = 0;
+    float i_term = 0;
+    float d_term = 0;
+
     public:
         /**
          * @brief Construct a new PID
@@ -110,6 +117,17 @@ class PID
         float getkI() const;
         float getkD() const;
         float getWindupRange() const;
+
+        /**
+         * @brief read the most recent P / I / D term contributions.
+         *
+         * Each is saved by compute() (output = p_term + i_term + d_term), so
+         * they reflect the last compute() call. Used by debugPID to print the
+         * term breakdown while tuning. 0 before the first compute().
+         */
+        float getPTerm() const;
+        float getITerm() const;
+        float getDTerm() const;
 };
 
 
@@ -126,5 +144,31 @@ class angular_PID : public PID
         angular_PID(float kP, float kI, float kD, float windupRange = 0);
         float compute(float error);
 };
+
+/**
+ * @brief Asymptotic gain-schedule curve (PIDPlus-style).
+ *
+ * Maps a motion's size (the setpoint) to a kP value on a smooth S-curve:
+ *   - small setpoint   -> kP near `initial` (snappy, precise final settling)
+ *   - large setpoint   -> kP near `final`   (gentle ramp, less overshoot)
+ *   - setpoint == knee  -> kP at the midpoint, (initial + final) / 2
+ * `power` controls how sharply the curve bends around the knee.
+ *
+ * Formula: (final - initial) * |s|^power / (|s|^power + knee^power) + initial
+ *
+ * Movement code calls this ONCE at the start of a motion to pick a kP from how
+ * far it has to move, then holds that kP for the whole motion.
+ *
+ * @param setpoint how far the motion is being asked to move. Pass the |error|
+ *                 measured once at motion start. Must be in the SAME units as
+ *                 `knee` (e.g. heading degrees for a turn, motor degrees for
+ *                 moveFor).
+ * @param initial  kP when setpoint is ~0
+ * @param final    kP the curve approaches as setpoint grows large
+ * @param knee     setpoint at which kP is the midpoint. Must be > 0.
+ * @param power    transition sharpness (higher = sharper bend)
+ * @return the scheduled kP
+ */
+float asymptoticGain(float setpoint, float initial, float final, float knee, float power);
 
 }   // namespace WinLib

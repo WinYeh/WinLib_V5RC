@@ -1,12 +1,12 @@
 #pragma once
 #include "api.h"                // IWYU pragma: keep
 
-namespace WinLib 
+namespace WinLib
 {
     /**
     * @brief A namespace representing the size of omniwheels.
     */
-    namespace Omniwheel 
+    namespace Omniwheel
     {
         constexpr float NEW_2 = 2.125;
         constexpr float NEW_275 = 2.75;
@@ -23,10 +23,64 @@ namespace WinLib
         constexpr float OLD_4_HALF = 4.175;
     } // namespace Omniwheel
 
+
+    /**
+     * @brief CustomIMU — a calibrated wrapper around pros::IMU.
+     *
+     * Every physical V5 IMU has a tiny manufacturing bias in how it reports
+     * rotation. A "perfect" 360° turn might read as 359.6° on one chip and
+     * 360.5° on another. Over a 90-second match that bias compounds into
+     * degrees of heading error, which becomes inches of position error in odom.
+     *
+     * The fix is empirical: spin the robot a known number of full turns on a
+     * flat surface, read what the IMU reports, and bake the ratio into the
+     * sensor itself. After that every consumer (odom, turnToHeading,
+     * boomerang) gets the corrected number for free.
+     *
+     *   scalar = trueRotation / measuredRotation
+     *
+     * Example: 10 full turns = 3600°. IMU reports 3559°. scalar ≈ 1.01152.
+     *
+     * @b Important — why this is reached through a `CustomIMU*`, not a
+     * `pros::Imu*`:
+     *   pros::IMU::get_rotation() is NOT virtual in the PROS base. A call
+     *   through `pros::Imu*` would skip this override and return the raw
+     *   (unscaled) value. So OdomSensors below stores a `CustomIMU*` — that
+     *   way the scalar always takes effect. Pass scalar = 1.0 for an
+     *   uncalibrated IMU (same behavior as the base class).
+     *
+     * @b Example
+     * @code {.cpp}
+     * // in config.cpp:
+     * WinLib::CustomIMU imu1(15, 1.01152008991);  // port 15, calibrated
+     * WinLib::CustomIMU imu2(0,  1.0);            // port 0,  uncalibrated
+     * @endcode
+     */
+    class CustomIMU : public pros::IMU
+    {
+        public:
+            CustomIMU(int port, double scalar)
+                : pros::IMU(port),
+                  m_port(port),
+                  m_scalar(scalar) {}
+
+            // Unbounded total rotation in degrees, multiplied by the
+            // calibration scalar. Calls the C API directly to avoid recursing
+            // into the base if it ever becomes virtual.
+            double get_rotation() const {
+                return pros::c::imu_get_rotation(m_port) * m_scalar;
+            }
+
+        private:
+            const int    m_port;
+            const double m_scalar;
+    };
+
+
     /**
     * @brief A class of tracking wheels used for odometry.
     */
-    class TrackingWheel 
+    class TrackingWheel
     {
         private:
             pros::Rotation *encoder; // pointer to the encoder object
@@ -49,7 +103,7 @@ namespace WinLib
         *
         * @return float offset in mm
         */
-        float getOffset(); 
+        float getOffset();
 
         /**
         * @brief Get the diameter of the tracking wheel in inches by dividing by 25.4 to convert from mm
@@ -76,19 +130,23 @@ namespace WinLib
     /**
  * @brief class containing the sensors used for odometry
  */
-    class OdomSensors 
+    class OdomSensors
     {
         public:
             /**
-            * Sensors used for odometry. 
-            * The tracking wheels are used to track the position of the robot. 
+            * Sensors used for odometry.
+            * The tracking wheels are used to track the position of the robot.
             * The IMU is used to track the heading of the robot.
-            * If the robot uses more than 1 tracking wheel for vertical or horizontal tracking, 
+            * If the robot uses more than 1 tracking wheel for vertical or horizontal tracking,
             * please consider adding the additional tracking wheel as a pointer in the class and setting it to nullptr if not used.
-            */   
+            *
+            * The IMU is stored as a `CustomIMU*` (not `pros::Imu*`) so that
+            * the calibration scalar in CustomIMU::get_rotation() actually
+            * takes effect — see the note on CustomIMU above.
+            */
             TrackingWheel* vertical;
             TrackingWheel* horizontal;
-            pros::Imu* imu;
+            CustomIMU*     imu;
 
             /**
             * The sensors are stored in a class so that they can be easily passed to the chassis class
@@ -97,8 +155,9 @@ namespace WinLib
             *
             * @param vertical pointer to the first vertical tracking wheel
             * @param horizontal pointer to the first horizontal tracking wheel
-            * @param imu pointer to the IMU
+            * @param imu pointer to the IMU (must be a CustomIMU — pass
+            *            scalar = 1.0 if you don't have calibration data yet)
             */
-            OdomSensors(TrackingWheel* vertical, TrackingWheel* horizontal, pros::Imu* imu);
+            OdomSensors(TrackingWheel* vertical, TrackingWheel* horizontal, CustomIMU* imu);
     };
 } // namespace WinLib

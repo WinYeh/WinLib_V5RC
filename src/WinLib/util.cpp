@@ -43,6 +43,16 @@ float WinLib::ema(float current, float previous, float smooth)
     return (current * smooth) + (previous * (1 - smooth));
 }
 
+float WinLib::clamp(float input, float max, float min)
+{
+    // Order matters: floor first, then ceiling.
+    //   std::fmax(input, min) — guarantees the result is at least `min`.
+    //   std::fmin(..., max)   — then guarantees it is at most `max`.
+    // Doing them in the other order also works for finite inputs, but doing
+    // floor-then-ceiling matches the way we typically read the bounds aloud.
+    return std::fmin(std::fmax(input, min), max);
+}
+
 /* for curvature motions (probably can be deleted) 
 float WinLib::getCurvature(Pose pose, Pose other) 
 {

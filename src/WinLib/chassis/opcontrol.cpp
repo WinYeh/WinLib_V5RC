@@ -4,15 +4,6 @@
 // joystick → motors mapping. No drive curves, no deadband, no scaling.
 // Drive curves are deferred to a separate file later (see CLAUDE.md
 // § Deferred Decisions: Drive curves).
-//
-// Typical usage from main.cpp::opcontrol():
-//
-//     while (true) {
-//         int throttle = master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);   // axis 3
-//         int turn     = master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);  // axis 1
-//         chassis.arcade(throttle, turn);
-//         pros::delay(10);
-//     }
 
 #include "WinLib/chassis/chassis.hpp"
 
@@ -39,8 +30,9 @@ using namespace WinLib;
  */
 void Chassis::arcade(float throttle, float turn) 
 {
+    throttle *= fabs(throttle) > 5;
+    turn *= fabs(turn) > 5; 
     float left  = throttle + turn;
     float right = throttle - turn;
-
-    move_voltage(left * 12000 / 127, right * 12000 / 127);
+    move_voltage(left * 12 / 127, right * 12 / 127);
 }

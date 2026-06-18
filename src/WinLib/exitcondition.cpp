@@ -1,13 +1,17 @@
 #include <cmath>
 #include "pros/rtos.hpp"
 #include "WinLib/exitcondition.hpp"
+#include "WinLib/util.hpp" // IWYU pragma: keep (for WinLib::degToRad)
 using namespace WinLib;
 
 ExitCondition::ExitCondition(const float range, const int time)
     : range(range),
       time(time) {}
 
-bool ExitCondition::getExit() { return done; }
+bool ExitCondition::getExit() 
+{ 
+    return done; 
+}
 
 bool ExitCondition::update(const float input) 
 {
@@ -39,5 +43,23 @@ void ExitCondition::setTime(const int newTime)
     reset();
 }
 
-float ExitCondition::getRange() const { return range; }
-int   ExitCondition::getTime()  const { return time; }
+float ExitCondition::getRange() const 
+{ 
+    return range; 
+}
+int ExitCondition::getTime()  const 
+{ 
+    return time; 
+}
+
+bool hasReachedMinVel(float velocity, float minVelocity)
+{
+    return std::fabs(velocity) <= std::fabs(minVelocity);
+}
+
+bool hasCrossedTarget(Pose pose, Pose target, float theta, float tolerance = 0)
+{
+    const float heading = WinLib::DegToRad(theta);
+    return (pose.y - target.y) * -std::cos(heading) >= std::sin(heading) * (pose.x - target.x) + tolerance;
+    
+}

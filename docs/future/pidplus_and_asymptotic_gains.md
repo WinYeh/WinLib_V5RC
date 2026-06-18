@@ -1,6 +1,6 @@
 # PIDPlus + AsymptoticGainsPlus — Reference Page
 
-> **Status: Reference only — not implemented in this library.** See Section 8 for when to revisit.
+> **Status: Partially implemented — the formula only.** WinLib now ships the asymptotic gain-schedule *curve*: `WinLib::asymptoticGain()` in `pid.hpp`, the `AsymptoticGains` POD, and an optional `ControllerSettings::gains` (`std::optional`). It's wired into `turnToHeading` and `moveFor` as **per-motion-locked** scheduling (the "case a" pattern in Section 5) — each motion reads its initial error once, picks `kP` from the curve when `gains` has a value (else uses the constant `kP`), and holds it for the whole motion. Deliberately **left out**: the class machinery — `AsymptoticGainsPlus`, `PIDPlus`, the by-reference indirection, and the reconfigure API (see Section 9). The rest of this page stays a Genesis reference; **Sections 8–9 capture the *pre-implementation* reasoning and are kept as a historical record** (so "Default answer: don't" reflects the decision *before* turns proved they needed scheduling). See `CHANGES_FROM_REFERENCE.md` § *Controllers / PID* for the divergence entry.
 
 This page exists so that if WinLib ever needs **gain scheduling** (changing the PID's `kP` based on how far it has to move), the student maintaining it can read this and decide whether to adopt the system Team 78181A built — or pick something simpler.
 

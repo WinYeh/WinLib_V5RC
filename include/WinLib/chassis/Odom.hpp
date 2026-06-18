@@ -13,6 +13,19 @@ namespace WinLib
     */
     Pose getPose(bool radians = false);
     /**
+    * @brief Get the robot's heading, wrapped into a compass range.
+    *
+    * Convenience wrapper over getPose().theta. odom's theta is unbounded — it
+    * keeps counting past 360° like a trip odometer — so this wraps it into
+    * [0, 360) degrees (or [0, 2*pi) radians) the way a compass reads. The value
+    * is the calibrated, odom-tracked heading, so it includes any setPose
+    * corrections (DSR resets, your starting heading).
+    *
+    * @param radians true for [0, 2*pi) radians, false for [0, 360) degrees. False by default
+    * @return float heading
+    */
+    float getHeading(bool radians = false);
+    /**
     * @brief Set the Pose of the robot
     *
     * @param pose the new pose
@@ -37,10 +50,10 @@ namespace WinLib
     * @brief Update the pose of the robot
     *
     */
-    void update();
+    void OdomUpdate();
     /**
     * @brief Initialize the odometry system
     *
     */
-    void init();
+    void OdomInit();
 } // namespace WinLib

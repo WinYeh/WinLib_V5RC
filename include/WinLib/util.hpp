@@ -14,7 +14,7 @@ namespace WinLib
  * @param input the x as input  
  * @return the value of input^e
  */
-double xEe_Func(double input); 
+double xEe_Func(double input);
 
 /**
  * @brief AngularDirection
@@ -70,7 +70,7 @@ float avg(std::vector<float> values);
 /**
  * @brief Exponential moving average
  * It places more weight on the most recent data points and exponentially less on older ones.
- * Main purpose: to reduce & filter out the background noice from sensor 
+ * Main purpose: to reduce & filter out the background noice from sensor
  * formula: (current * smooth) + (previous * (1 - smooth) )
  *
  * @param current current measurement
@@ -84,6 +84,27 @@ float avg(std::vector<float> values);
  * @endcode
  */
 float ema(float current, float previous, float smooth);
+
+/**
+ * @brief Clamp a value to the [min, max] range.
+ *
+ * Returns `input` if it sits between `min` and `max`, otherwise returns
+ * whichever boundary it crossed. Implemented with std::fmin / std::fmax so
+ * NaN propagation matches the rest of the math helpers in <cmath>.
+ *
+ * @param input the value to clamp
+ * @param max   the upper bound  (returned when input > max)
+ * @param min   the lower bound  (returned when input < min)
+ * @return      clamp(input, max, min) = min(max, max(input, min))
+ *
+ * @b Example
+ * @code {.cpp}
+ * clamp( 7.0, 12.0, -12.0); // returns  7.0  (already in range)
+ * clamp(15.0, 12.0, -12.0); // returns 12.0  (clipped to max)
+ * clamp(-20.0, 12.0, -12.0); // returns -12.0 (clipped to min)
+ * @endcode
+ */
+float clamp(float input, float max, float min);
 
 /** for curvature motions (probably can be deleted)
  * @brief Get the signed curvature of a circle that intersects the first pose and the second pose

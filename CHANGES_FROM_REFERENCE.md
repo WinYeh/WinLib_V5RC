@@ -127,6 +127,21 @@ The inherited two-block layout updated `prevVertical` / `prevHorizontal` *betwee
 - **Why:** Three wins. (1) **Readable construction** — `ExitCondition(1, 100)` makes the (range, timeout) pairing visible; the old flat form could silently compile with the two swapped. (2) **Flat storage for fast access** — movement code can read `settings.kP` or mutate `settings.smallError` directly, without going through getters or object indirection. (3) **One-line mid-route tuning** — `chassis.lateralSettings.smallError = 0.5;` works from any auton.
 - **Required infrastructure:** This design requires `PID::getkP()`, `getkI()`, `getkD()`, `getWindupRange()` and `ExitCondition::getRange()`, `getTime()` — all added to those classes.
 
+### `ControllerSettings` collapsed to ONE exit window (supersedes the two-window entry above)
+- **Reference:** Genesis's `ControllerSettings` carries two exit windows — `smallError`/`smallErrorTimeout` (tight final-approach) and `largeError`/`largeErrorTimeout` (looser "good enough" window used in combination with a minSpeed floor).
+- **WinLib:** Reduced to a single window — flat fields `exitRange` and `exitTimeout`. The constructor takes one `ExitCondition`, not two.
+  ```cpp
+  WinLib::ControllerSettings lateralSettings(
+      WinLib::PID(10, 0, 3, 3),         // kP, kI, kD, windupRange
+      WinLib::ExitCondition(1, 100)     // settle: within 1 inch for 100 ms
+  );
+  // Internally stored as flat floats: kP=10, kI=0, kD=3, windupRange=3,
+  //                                   exitRange=1, exitTimeout=100
+  ```
+  The "looser good-enough at low speed" role is now served entirely by `LateralParams::earlyExitRange` / `AngularParams::earlyExitRange` (instantaneous threshold, only fires when `params.minSpeed > 0`).
+- **Why:** Two windows were rarely both used. In practice routes either tuned the small window and ignored the large one, or set `minSpeed > 0` and relied on `earlyExitRange` anyway. Carrying both meant four extra fields and two extra `ExitCondition` calls at every config site — pure overhead for teaching teams who only need to think about "when am I done." If a real route ever needs the dual-window behavior, build it locally inside that motion's `.cpp` from two ad-hoc `ExitCondition` instances rather than baking it into the shared config.
+- **Movement-code consequence:** `turn_to_heading.cpp` (and the future motion files) now construct a single `ExitCondition exit(angularSettings.exitRange, angularSettings.exitTimeout)` and check `exit.getExit()` once per loop, plus the `earlyExitRange + minSpeed` short-circuit.
+
 ### Motor-power unit: volts (0–12 V), not PWM (0–127)
 - **Reference:** Genesis/LemLib use the PROS PWM range — `pros::Motor::move(int)` taking -127..127. `maxSpeed = 127`, `minSpeed = 0`.
 - **WinLib:** Movement-param motor-power fields (`maxSpeed`, `minSpeed`) are in **volts** with `12.0` as the hardware ceiling. Inside Chassis motion methods, drive the motors with `pros::Motor::move_voltage(mV)` (mV = volts × 1000). Opcontrol helpers (`tank`/`arcade`/`curvature`) still take joystick-shaped `int` args (-127..127) for ergonomic reasons and convert to volts internally.
@@ -136,6 +151,11 @@ The inherited two-block layout updated `prevVertical` / `prevHorizontal` *betwee
 - **Reference:** Genesis's `ExitCondition` declares its fields as `const float range; const int time;`, so the values are locked at construction.
 - **WinLib:** `const` removed, plus explicit setters: `setRange(float)` and `setTime(int)`. Both also call `reset()` so the timer doesn't carry over with mismatched thresholds.
 - **Why:** Auton routes sometimes need a different "good enough" definition at different points in the same match — e.g. tighten the small-error threshold for a final scoring approach, then loosen for the next cruise leg. With `const` fields, the user had to build a new `ExitCondition` and copy-assign; opening up the fields turns it into a one-liner like `chassis.lateralSettings.smallExit.setRange(0.5)`.
+
+### Gain scheduling — asymptotic kP curve ported as a formula, not a class
+- **Reference (Genesis):** `AsymptoticGainsPlus` (a class with `getGain`/`setGain`/`configure` and a stored running `setpoint`) feeds `kP` into `PIDPlus`, which holds it **by reference** so mutating the gains object updates every PID that points at it. Tuned via `setTurnPIDPlus(...)` / `setLateralPIDPlus(...)`, configured once in `MotionPlusTuning::apply()`. Full write-up in `docs/future/pidplus_and_asymptotic_gains.md`.
+- **WinLib:** Ported only the **formula** — `WinLib::asymptoticGain(setpoint, initial, final, knee, power)`, a free function in `pid.hpp` / `pid.cpp`. No `AsymptoticGainsPlus` class, no reference indirection, no `setKp`/`tick` split, no reconfigure API. The four curve numbers live in a plain `AsymptoticGains` POD; a `ControllerSettings` optionally carries one as `std::optional<AsymptoticGains> gains` (by value, constructed inline at the config site). Scheduling is **per-motion locked** (the reference page's "case a"): a motion reads its initial error once, computes `kP` via `asymptoticGain` when `gains` has a value (else uses the constant `kP` from the PID), and holds that `kP` for the whole motion. Wired into `turnToHeading` and `moveFor`; both axes ship a curve (angular because turns needed it; lateral enabled by request). Boomerang stays on the constant-`kP` fallback.
+- **Why:** The full Genesis machinery exists for a feature only one-and-a-half axes use, and the by-reference indirection buys runtime gain-sharing that WinLib doesn't need — it rebuilds a fresh PID every motion anyway. The formula alone delivers the real benefit (one set of numbers → snappy small motions, gentle big ones, no per-call `kP` hand-tuning) at a fraction of the teaching cost. `std::optional` leaves the original constant-`kP` path working untouched when no curve is supplied. Knee/setpoint units follow each motion's own error units — heading degrees for turns, motor degrees for `moveFor`.
 
 ---
 

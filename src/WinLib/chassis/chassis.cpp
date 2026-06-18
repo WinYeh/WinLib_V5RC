@@ -9,6 +9,7 @@
 
 #include "WinLib/chassis/chassis.hpp"
 #include "WinLib/chassis/odom.hpp"
+#include "pros/rtos.hpp"
 
 using namespace WinLib;
 
@@ -39,13 +40,16 @@ Chassis::Chassis(Drivetrain drivetrain,
 // otherwise the task's first ticks would read a non-calibrated IMU. Wheel
 // resets can come either side of calibration — putting them before init() so
 // the task's first read sees a clean (0, 0, 0) starting point.
-void Chassis::calibrate(bool calibrateIMU) {
-    if (calibrateIMU && odomSensors.imu != nullptr) {
+void Chassis::calibrate(bool calibrateIMU) 
+{
+    if (calibrateIMU && odomSensors.imu != nullptr) 
+    {
         odomSensors.imu->reset(true);   // true = blocking
     }
     if (odomSensors.vertical   != nullptr) odomSensors.vertical  ->reset();
     if (odomSensors.horizontal != nullptr) odomSensors.horizontal->reset();
-    WinLib::init();   // idempotent — spawns the tracking task once
+    WinLib::OdomInit();  
+    pros::delay(3000); 
 }
 
 
@@ -67,6 +71,13 @@ void Chassis::setBrakeMode(pros::motor_brake_mode_e mode) {
 // See WinLib/chassis/DSR.hpp for the algorithm and assumptions.
 void Chassis::resetPosition() {
     dsr.reset();
+}
+
+/* This function converts millimeters to degrees based on the wheel diameter and 
+only used for converting target distances to motor positions */
+float Chassis::MMTodeg(float distance)
+{
+    return distance * 360 * 0.75 / (drivetrain.wheelDiameter * M_PI * 2.54);  
 }
 
 
