@@ -37,7 +37,6 @@ float WinLib::avg(std::vector<float> values)
     return sum / values.size();
 }
 
-/* for odom */
 float WinLib::ema(float current, float previous, float smooth)
 {
     return (current * smooth) + (previous * (1 - smooth));
@@ -51,6 +50,11 @@ float WinLib::clamp(float input, float max, float min)
     // Doing them in the other order also works for finite inputs, but doing
     // floor-then-ceiling matches the way we typically read the bounds aloud.
     return std::fmin(std::fmax(input, min), max);
+}
+
+int WinLib::sgn(float input)
+{
+    return input / fabs(input); // returns -1 for negative, +1 for positive, 0 for zero
 }
 
 /* for curvature motions (probably can be deleted) 

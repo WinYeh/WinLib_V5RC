@@ -83,21 +83,21 @@ WinLib::Drivetrain dt {
 // TODO: tune everything on the real robot.
 WinLib::ControllerSettings lateralSett(
     WinLib::linear_PID(
-        /*kP=*/          0.005f,   // V/mm — fallback when scheduling off — TODO tune
+        /*kP=*/          0.027f,   // V/mm — fallback when scheduling off — TODO tune
         /*kI=*/          0,        // leave at 0 until you see steady-state drift
-        /*kD=*/          0.0005f,  // V/(mm/tick) — TODO tune
+        /*kD=*/          0.0000f,  // V/(mm/tick) — TODO tune
         /*windupRange=*/ 50        // mm — only integrate when |error| < this
     ),
     WinLib::ExitCondition(
-        /*range=*/ 10,             // mm — settle window
+        /*range=*/ 10,             // degrees — settle window
         /*time=*/  100             // ms — dwell time before declaring done
-    ),
-    WinLib::AsymptoticGains{
-        /*initial=*/ 0.006f,       // snappy kP for short moves — TODO tune
-        /*final=*/   0.004f,       // gentle kP for long moves — TODO tune
-        /*knee=*/    350.0f,       // MOTOR deg of error at curve midpoint — TODO tune
-        /*power=*/   1.5f          // transition sharpness — TODO tune
-    }
+    )//,
+    // WinLib::AsymptoticGains{
+    //     /*initial=*/ 0.006f,       // snappy kP for short moves
+    //     /*final=*/   0.028f,       // gentle kP for long moves 
+    //     /*knee=*/    350.0f,       // MOTOR deg of error at curve midpoint
+    //     /*power=*/   1.5f          // transition sharpness
+    // }
 );
 
 // ---- Angular controller (turnToHeading / turnToPoint / boomerang) ----

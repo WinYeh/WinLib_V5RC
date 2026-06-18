@@ -9,7 +9,6 @@
 
 using namespace WinLib;
 
-
 /* ---- arcade ----
  *
  * Classic arcade-drive mixing:

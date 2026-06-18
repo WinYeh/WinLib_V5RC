@@ -87,7 +87,7 @@ void Chassis::turnToHeading(float theta, int timeout, AngularParams params)
         // Apply the min-speed floor.
         if (std::fabs(output) < std::fabs(params.minSpeed) )
         {
-            output = (output > 0) ? params.minSpeed : -params.minSpeed;
+            output = params.minSpeed * sgn(output);
         }
 
         // Mix for in-place rotation (see sign convention at top of file).

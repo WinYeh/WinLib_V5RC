@@ -60,7 +60,7 @@ float linear_PID::compute(const float error)
 
     // linear PID shapes the P term through xEe_Func. Save all three terms
     // (d_term uses the old prevError, so compute before overwriting it).
-    p_term = kP * xEe_Func(error);
+    p_term = kP * xEe_Func(error) * sgn(error);
     i_term = kI * integral;
     d_term = kD * (error - prevError);
     prevError = error;

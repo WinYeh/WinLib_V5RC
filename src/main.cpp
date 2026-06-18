@@ -24,11 +24,17 @@ void competition_initialize()
 void autonomous() 
 {
 	printf ("auton begins---\n"); 
+	/*
 	chassis.turnToHeading(90, 2000, {.maxSpeed = 12.0, .minSpeed = 0.5, .earlyExitRange = 2}); 
 	pros::delay(1000);
 	chassis.turnToHeading(180, 2000, {.maxSpeed = 12.0, .minSpeed = 0.5, .earlyExitRange = 2}); 
 	pros::delay(1000);	 
-	chassis.turnToHeading(0, 2000, {.maxSpeed = 12.0, .minSpeed = 0.5, .earlyExitRange = 2}); 
+	chassis.turnToHeading(0, 2000, {.maxSpeed = 12.0, .minSpeed = 0.5, .earlyExitRange = 2});
+	*/
+
+	chassis.moveFor(1500, 0, 5000, {.forwards = 1, .maxSpeed = 12.0, .minSpeed = 2.0, .earlyExitRange = 5});
+	chassis.moveFor(1500, 0, 5000, {.forwards = -1, .maxSpeed = 12.0, .minSpeed = 2.0, .earlyExitRange = -5});
+
 }
 
 void opcontrol() 
@@ -41,8 +47,8 @@ void opcontrol()
 		float turn     = master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
 		chassis.arcade(throttle, turn);
 
-		dr4b::Wrist::Ctr();
-		dr4b::Claw::Ctr();	
-		dr4b::Lifter::Ctr();
+		// dr4b::Wrist::Ctr();
+		// dr4b::Claw::Ctr();	
+		// dr4b::Lifter::Ctr();
 	}
 }

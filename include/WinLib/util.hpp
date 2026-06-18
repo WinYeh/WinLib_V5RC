@@ -106,6 +106,16 @@ float ema(float current, float previous, float smooth);
  */
 float clamp(float input, float max, float min);
 
+/**
+ * @brief Get the sign of a value.
+ *
+ * Returns -1 if the value is negative, 1 if positive, and 0 if zero.
+ *
+ * @param input the value to get the sign of
+ * @return int the sign of the value
+ */
+int sgn(float input);
+
 /** for curvature motions (probably can be deleted)
  * @brief Get the signed curvature of a circle that intersects the first pose and the second pose
  *

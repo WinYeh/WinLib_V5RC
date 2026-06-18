@@ -134,8 +134,8 @@ public:
 // also works.
 
 struct LateralParams {
-    /** Drive forwards (true) or backwards (false). */
-    bool  forwards       = true;
+    /** Drive direction: 1 = forwards, -1 = backwards. */
+    int   forwards       = 1;
     /** Cap on motor power, in volts. Hardware max is 12.0 V. */
     float maxSpeed       = 12.0;
     /** Floor on motor power once moving, in volts. Set non-zero to use smoother exit conditions. */
@@ -240,7 +240,7 @@ public:
 
     // ---- autonomous motions (all blocking) ----
     void moveToPoint  (float x, float y,              int timeout, LateralParams   params = {});
-    void moveFor      (float distance,                int timeout, LateralParams   params = {});
+    void moveFor      (float distance, float theta,   int timeout, LateralParams   params = {});
     void turnToHeading(float theta,                   int timeout, AngularParams   params = {});
     void turnToPoint  (float x, float y,              int timeout, AngularParams   params = {});
     void boomerang    (float x, float y, float theta, int timeout, BoomerangParams params = {});

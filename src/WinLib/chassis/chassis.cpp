@@ -77,7 +77,24 @@ void Chassis::resetPosition() {
 only used for converting target distances to motor positions */
 float Chassis::MMTodeg(float distance)
 {
-    return distance * 360 * 0.75 / (drivetrain.wheelDiameter * M_PI * 2.54);  
+    float MOTOR_RPM = 0;
+    switch(drivetrain.leftMotors->get_gearing() ) 
+    {
+        case pros::v5::MotorGears::red:
+            MOTOR_RPM = 100;
+            break;
+        case pros::v5::MotorGears::green:
+            MOTOR_RPM = 200;
+            break;
+        case pros::v5::MotorGears::blue:
+            MOTOR_RPM = 600;
+            break;
+        default:
+            MOTOR_RPM = 600; // default to 600 if gearing is unknown
+    }
+    float gearRatio = MOTOR_RPM / drivetrain.rpm;
+    float wheelCircumferenceMM = drivetrain.wheelDiameter * M_PI * 25.4; // in mm
+    return distance / wheelCircumferenceMM * 360.0f * gearRatio; // in degrees
 }
 
 
