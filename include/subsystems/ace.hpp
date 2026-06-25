@@ -1,13 +1,13 @@
 #pragma once
 #include "api.h"    // IWYU pragma: keep
 
-namespace dr4b
+namespace ace
 {
     // Call once at startup (in initialize()) so Hold() can just brake().
     // Sets the lift and wrist brake modes to HOLD a single time.
     void init();
 
-    namespace Wrist
+    namespace LadyBrown
     {
         void CW();
         void CCW();
@@ -22,7 +22,7 @@ namespace dr4b
         void Ctr();
     }
 
-    namespace Lifter
+    namespace Cascade
     {
         void Up();
         void Down();

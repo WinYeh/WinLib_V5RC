@@ -128,6 +128,24 @@ namespace WinLib
 
 
     /**
+     * @brief Which odometry algorithm the tracking task runs.
+     *
+     * TW2 — vertical + horizontal tracking wheels measure the
+     *   forward and sideways step; heading comes from the IMU. Most accurate,
+     *   but needs both wheels.
+     * VPD — a single vertical tracking wheel measures the
+     *   forward step; heading is derived from the drivetrain left/right encoder
+     *   difference and fused with the IMU (see OdomSensors::imuTrust). No
+     *   horizontal wheel, so sideways motion is assumed zero.
+     */
+    enum class OdomMode
+    {
+        TW2,
+        VPD
+    };
+
+
+    /**
  * @brief class containing the sensors used for odometry
  */
     class OdomSensors
@@ -149,6 +167,16 @@ namespace WinLib
             CustomIMU*     imu;
 
             /**
+            * mode     — which odometry algorithm the tracking task runs.
+            * imuTrust — for VPD only: the IMU's weight in
+            *            the heading blend, 0..1. 1.0 = trust the IMU completely,
+            *            0.0 = pure drivetrain heading (also the effective behavior
+            *            when imu == nullptr). Ignored by TW2.
+            */
+            OdomMode mode;
+            float    imuTrust;
+
+            /**
             * The sensors are stored in a class so that they can be easily passed to the chassis class
             * The variables are pointers so that they can be set to nullptr if they are not used
             * Otherwise the chassis class would have to have a constructor for each possible combination of sensors
@@ -157,7 +185,12 @@ namespace WinLib
             * @param horizontal pointer to the first horizontal tracking wheel
             * @param imu pointer to the IMU (must be a CustomIMU — pass
             *            scalar = 1.0 if you don't have calibration data yet)
+            * @param mode which odom algorithm to run (default TW2,
+            *             so existing setups compile and behave unchanged)
+            * @param imuTrust IMU weight in the drivetrain-mode heading blend (0..1)
             */
-            OdomSensors(TrackingWheel* vertical, TrackingWheel* horizontal, CustomIMU* imu);
+            OdomSensors(TrackingWheel* vertical, TrackingWheel* horizontal, CustomIMU* imu,
+                        OdomMode mode     = OdomMode::TW2,
+                        float    imuTrust = 0.98f);
     };
 } // namespace WinLib

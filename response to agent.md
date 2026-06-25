@@ -1,7 +1,62 @@
-response to agent
+data recorded for odom's pose after turnToHeading 180 deg 
 
-this document here tracks all the responses to the questions and decisions agents asked me
+# turnToHeading(180 deg)
 
-1. Yes. The text should be printed in the USB terminal (pros terminal)
-2. I want the format to be labled, but please note that the label of each value should be really clear. You can still use abreviation, such as err, out, p_term, i_term, d_term, but they should clearly represent the values. 
-3. The question you brought up here can be discussed. Since printing the debug texts every 10ms can slows down the loop and the terminal also cannot really print texts that fast, I think it would be better if we have a parameter named "refreshTime" that allows the debug function to know when to print out those texts for a period of time. 
+## VPD
+
+| trial# |   x   |   y   | theta | 
+|------- |-------|-------|-------|
+|   1       2.6    -2.4    177.9 
+|   2       1.1    -24.5   180.4
+|   3      -15.5    25.2   181.99
+|   4       2.2    -9.4    180.5 
+|   5      -1.9    -3.6    181.0
+|   6      -3.1    -14.0   179.4
+|   7      -3.6    -3.7    183.1
+|   8      -8.2     7.8   -178.0
+|   9       1.0    -6.4    177.0
+|  10       3.6    -18.2   178.1
+|
+
+## TW2 
+| trial# |   x   |   y   | theta | 
+|------- |-------|-------|-------|
+|   1      -36.5   -87.0  -180.4
+|   2       20.5   -74.7   176.9
+|   3      -8.5    -95.4   176.8 
+|   4       2.0    -107.2  177.3
+|   5      -10.4   -99.5   178.9 
+|   6       3.6    -92.7   178.3
+|   7      -7.4    -90.4   178.3
+|   8       12.7   -97.5   182.8
+|   9      -7.8    -93.6   180.6
+|  10      -0.3    -103.8  179.0  
+
+
+# turnBy (360 deg) 
+- data recorded in the format of (pose.x, pose.y, pose.theta)
+- with sequence of trials 
+
+## TW2 
+-3.0, 13.9, 361.2
+7.5, 19.7, 725.2
+5.3, 22.7, 1083.0
+10.7, 34.4, 1445.8
+14.2, 47.8, 1805.2
+18.6, 54.5, 2168.2
+6.8, 71.2, 2529.7
+13.3, 81.1, 2893.2
+16.9, 92.8, 3252.6
+22.0, 98.5, 3614.2
+
+## VPD
+-2.8, 9.1, 359.2
+-6.2, 8.8, 724.3
+-5.5, 17.4, 1084.3
+-7.6, 26.2, 1450.2
+-13.9, 40.0, 1809.1
+-19.8, 54.6, 2168.5
+-22.5, 68.0, 2529.6
+-27.5, 78.6, 2891.8
+-34.5, 93.5, 3251.8
+-40.4, 102.0, 3611.9

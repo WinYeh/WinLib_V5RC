@@ -21,6 +21,11 @@ WinLib's north star is teachability for a high-school team in their first PROS s
 - **WinLib:** Movement, opcontrol, chassis-level utilities, AND the `OdomSensors` configuration all live on the `Chassis` class. But the **odometry running state** (`odomPose`, `odomSpeed`, `prevVertical`, etc.) and the tracking task itself stay in `odom.cpp` as module-level statics. The public odom API is namespace-level free functions (`WinLib::getPose`, `setPose`, `update`, `init`). `odom.cpp` reads the sensors by `#include "config.h"` and reaching through the global `chassis.odomSensors` — there's only one copy of the OdomSensors in the whole program.
 - **Why:** Two competing goals. (1) Odom math is self-contained and reads cleanly on its own — folding it into Chassis would mean every odom edit also loads the Chassis mental model. So the math + running state stay in `odom.cpp`. (2) Sensor configuration is robot-specific and lives naturally with the rest of the chassis config — making it a Chassis member means `chassis.calibrate()` can handle IMU calibration and wheel reset in one call, and the user has one obvious place to read or change it. The compromise: `odom.cpp` depends on the application's `config.h` (mild layering violation), but in exchange there's zero data duplication and zero sensor-injection boilerplate.
 
+### Multi-robot config via namespaces + a single active-chassis pointer `Chs` (supersedes the "global `chassis`" detail above)
+- **Reference:** LemLib/Genesis declare one `Chassis chassis;` global; library code refers to it by name. There is no concept of multiple robots sharing one codebase.
+- **WinLib:** `config.h`/`config.cpp` declare **three** robots, each in its own namespace (`test`, `dr4b`, `ace`), and each carries a complete, independent device set + its own `WinLib::Chassis`. A single global pointer `WinLib::Chassis* Chs` (plus a `setActiveChassis(WinLib::Chassis&)` setter) names whichever robot is active. `main.cpp`'s `initialize()` calls `setActiveChassis(ace::chassis)` once, before the odom task starts. The robot-agnostic library files (`Odom.cpp`, `moveFor.cpp`) now read through `Chs->odomSensors` / `Chs->drivetrain` instead of a hard-named global `chassis`. A `if (Chs == nullptr) return;` guard sits at the top of `OdomUpdate()`. Subsystems are deliberately **not** abstracted by `Chs` — every robot's subsystems differ in type and API, so subsystem code still names its robot (`ace::Cascade::Ctr()`).
+- **Why:** One pointer can swap between the three chassis precisely because they're all the same `WinLib::Chassis` type — switching robots becomes one line in `initialize()` instead of editing every call site. Subsystems can't ride along (no shared type), which is the honest boundary of the idea. The runtime cost (all three robots' device handles constructed at boot) is negligible for PROS, whose Motor/Rotation/Distance objects are lightweight handles.
+
 ### Blocking motions only — no motion queue, no async
 - **Reference:** LemLib enqueues motions; they run on a background `pros::Task`.
 - **WinLib:** Movement functions block until the motion finishes. Subsystem-parallel work (intake, lift) is done with plain `pros::Task` at the user's discretion.
@@ -65,7 +70,7 @@ WinLib's north star is teachability for a high-school team in their first PROS s
 
 ### New: `DSR` (Distance Sensor Reset) — absolute position fix from 4 distance sensors
 - **Reference:** Genesis/LemLib has no equivalent. Their odometry is tracking-wheel + IMU only; once accumulated drift is in the pose, there's no built-in way to scrub it.
-- **WinLib:** New class `WinLib::DSR` in `chassis/DSR.hpp` / `.cpp`. Wraps 4 `pros::Distance*` sensors (one on each side of the robot) plus the per-sensor mm offset from the robot's tracking center. `dsr.reset()` uses the IMU heading + ray–wall intersection math to figure out which wall each sensor is hitting (works at **any** heading, not just cardinal), then picks the closest valid reading per axis and overwrites the odom (x, y) via `WinLib::setPose()`. Heading is left untouched (the IMU is the source of truth for heading). Held by `Chassis` as a public member; `Chassis::resetLocalPosition()` is now a thin delegate to `dsr.reset()`.
+- **WinLib:** New class `WinLib::DSR` in `chassis/DSR.hpp` / `.cpp`. Wraps 4 `pros::Distance*` sensors (one on each side of the robot) plus the per-sensor mm offset from the robot's tracking center. `dsr.reset()` uses the IMU heading + ray–wall intersection math to figure out which wall each sensor is hitting (works at **any** heading, not just cardinal), then picks the closest valid reading per axis and overwrites the odom (x, y) via `WinLib::setPose()`. Heading is left untouched (the IMU is the source of truth for heading). Held by `Chassis` as a public member; `Chassis::resetPosition()` is now a thin delegate to `dsr.reset()`.
 - **Why:** Odometry drifts. After 60+ seconds of an auton route, the (x, y) error can be measured in inches. Distance sensors give an absolute fix against the field walls — DSR is the team's "scrub the drift" button. The any-heading design matters because real auton routes don't pause at perfect cardinal angles for the sake of sensor calibration.
 
 ### `OdomSensors` holds one wheel per axis, not a pair
@@ -96,6 +101,20 @@ The inherited two-block layout updated `prevVertical` / `prevHorizontal` *betwee
 ### Drivetrain instance in the odom module
 - **Reference (Genesis):** Module-level `Drivetrain drive` so the motor-encoder fallback path can access wheel diameter / gear ratio.
 - **WinLib:** Deleted. The Drivetrain belongs to movement code, not odometry.
+
+### Two selectable odom modes — `OdomMode { TW2, VPD }`
+- **Reference (Pilons / LemLib):** One odometry pipeline with a fixed sensor-priority cascade; no user-visible algorithm selector.
+- **WinLib:** `OdomUpdate()` is a dispatcher over an explicit `OdomMode` stored on `OdomSensors`:
+  - **TW2** — the original two-tracking-wheel + IMU algorithm, unchanged (`OdomUpdate_TW2`).
+  - **VPD** — single vertical tracking wheel + drivetrain (`OdomUpdate_VPD`): forward from the vertical wheel (drivetrain average as a fallback), heading from the drivetrain left/right difference `(ΔS_L − ΔS_R)/trackWidth` **fused with the IMU** via `blendByTrust(imuΔ, driveΔ, imuTrust)`, sideways assumed zero. Both modes hand their local step to a shared `integrateStep()` (the chord-at-average-heading projection).
+- **Why:** The team wanted a version needing only one tracking wheel, with an IMU-independent heading cross-check/fallback (when `imuTrust → 0`, or the IMU is null, VPD heading is pure drivetrain). Explicit mode beats LemLib's infer-from-which-sensors-are-non-null here: the two modes share nearly the same sensor set, so sensor *presence* can't disambiguate them, and the named mode is self-documenting for students.
+- **Supersedes (kept above as history):** "Heading-source priority reduced to 2" — VPD adds drivetrain-differential heading (fused), so heading is IMU-only *only* in TW2. And part of "Drivetrain instance in the odom module" — VPD *does* read the drivetrain, but through `chassis.drivetrain` via the existing `config.h` reach-through, not a duplicated module-level instance.
+- **Supporting changes:** `blendByTrust()` (util) — credibility-weighted fusion sharing `ema`'s arithmetic; `Chassis::degToMM()` + `motorRPM()` — encoder degrees → mm; `moveFor` switched from taring the drive encoders to a start-offset so it no longer corrupts the now-shared encoders; `imuTrust` field added to `OdomSensors`.
+
+### Non-finite sensor read is sanitized per-sensor — NaN-poisoning guard in both update modes
+- **Reference (Pilons / LemLib):** No finiteness check. A failed sensor read returns `PROS_ERR_F` (`== INFINITY`); the integrator runs `sin`/`cos` on it, producing `NaN`. Because any arithmetic with `NaN` is `NaN`, the pose is poisoned **permanently** — `getPose()` returns `(nan, nan, nan)` for the rest of the run.
+- **WinLib:** Both `OdomUpdate_TW2` and `OdomUpdate_VPD` call `std::isfinite()` on each raw reading and, if one is non-finite, replace *that reading* with the sensor's last good value (so its delta is 0 this tick) — the healthy sensors keep updating the pose. (An intermediate version bailed the *whole* update if *any* read was bad, but that froze ALL of odom — `theta` stuck at 0 — the moment a single motor/sensor was unplugged, since one dead drivetrain port makes `get_position()` return `INFINITY`. Per-sensor sanitizing degrades gracefully instead.)
+- **Why:** A failed read (loose port, brownout, unplugged motor) shouldn't brick odometry. Letting it through poisons the pose with `NaN` permanently (`getPose()` → `(nan, nan, nan)`, seen in practice during VPD validation); skipping the whole tick freezes the pose entirely (also seen — `theta` stuck at 0). Sanitizing per-sensor keeps the good sensors live and only drops the bad one's contribution for that one tick.
 
 ---
 
@@ -159,6 +178,30 @@ The inherited two-block layout updated `prevVertical` / `prevHorizontal` *betwee
 
 ---
 
+## Movement / Motions
+
+### `moveFor` measures distance from motor encoders, not odom — `Chassis::MMTodeg`
+- **Reference:** LemLib/Genesis lateral moves track progress through **odometry** — the motion compares the odom pose against the target (in inches).
+- **WinLib:** `moveFor` reads the **drivetrain motor encoders** directly. It tares both groups at the start, converts the commanded distance (mm) to motor degrees with `Chassis::MMTodeg`, then runs the lateral PID on `target − averageEncoderDegrees`. `MMTodeg` computes wheel circumference in mm (`wheelDiameter × 25.4 × π`) and derives the gear ratio at runtime from the cartridge color (`leftMotors->get_gearing()` → 100/200/600 rpm) ÷ `drivetrain.rpm`. (An earlier version of this helper had the unit constant and gear factor wrong — `2.54` instead of `25.4`, plus a hardcoded `0.75` — which made every `moveFor` overshoot by ≈4.5×; corrected.)
+- **Why:** `moveFor`/`turnToHeading` are meant to work on day one, before odom is tuned. "Drive until the wheels have turned N degrees" is something a student can fully reason about without the odom pipeline; odom-based motions (`moveToPoint`, etc.) come later, once the pose is trusted.
+
+### `moveFor` also holds a target heading — `theta` parameter + parallel angular PID
+- **Reference:** Lateral distance moves take a distance and keep the robot straight via an *internal* correction to whatever heading the robot started at.
+- **WinLib:** `moveFor(float distance, float theta, int timeout, LateralParams)` takes an **explicit target heading** `theta`. Each tick it runs a second (angular) PID toward `theta` and mixes the two outputs — `left = lateral + angular`, `right = lateral − angular` — so the robot actively steers to the commanded absolute heading while driving the distance. The angular correction is clamped to ±2 V so it can't overpower the drive.
+- **Why:** Makes the motion's intent explicit ("drive 1.5 m while facing 0°") and lets a route correct drift to an *absolute* heading instead of only preserving whatever heading the previous motion left behind. This expands `moveFor` beyond the "simple distance move" originally sketched in `CLAUDE.md` § *Planned Architecture*.
+
+### `LateralParams::forwards` is an `int` sign (±1), not a `bool`
+- **Reference:** LemLib/Genesis motions use `bool forwards = true`.
+- **WinLib:** `LateralParams::forwards` is an `int` holding `+1` (forwards) or `-1` (backwards), used directly as a sign multiplier on the target: `MMTodeg(distance) * params.forwards`. (`AngularParams` and `BoomerangParams` keep their `bool forwards`, since there the flag selects a *facing*, not a math sign.)
+- **Why:** The value doubles as the arithmetic it drives — `* -1` cleanly negates the target for a reverse move, whereas a `bool` promotes to `0` and would zero the target out entirely. One token, no `if`.
+
+### New: `turnBy(angle, timeout, AngularParams)` — relative in-place turn
+- **Reference:** Genesis/LemLib expose only absolute turns (`turnToHeading` / `turnToPoint`). There is no relative "rotate N degrees from here" primitive, and because absolute turns run on the wrapped shortest-path error, a full revolution (or any move ≥180°) can't be commanded.
+- **WinLib:** Adds `Chassis::turnBy(float angle, int timeout, AngularParams params)` in `chassis/movement/turnBy.cpp`. It tracks progress against the **unbounded** accumulated heading (`getPose().theta`, which never wraps): it snapshots `start = getPose().theta`, then each tick computes `error = angle − |getPose().theta − start|` — the *magnitude* of rotation so far, no `angleError`, no wrap. This handles a full revolution and beyond (`360`, `720`, …) and is **sign-robust** (progress is a magnitude, so the robot converges no matter which physical direction it spins). Trade-off of the magnitude form: `angle` must be **positive** — a negative `angle` can never be reached, since `|…| ≥ 0` — and `params.direction` is unused. Shares the same PID / exit-condition / gain-schedule / debug structure as `turnToHeading`.
+- **Why:** Odom validation needs exact, repeatable full rotations — e.g. the offset-measurement method `offset = D / (2π·N)`, where the systematic offset arc grows linearly with N while random drift only grows like √N, so more rotations sharpen the estimate. `turnToHeading` can't express that. A separate relative motion keeps each method's contract clear (absolute heading vs. relative rotation) instead of overloading `turnToHeading` with a magic full-turn case.
+
+---
+
 ## Path Following / Asset System
 
 > **Status:** Pure pursuit and other path-following motions are currently **forbidden** per `CLAUDE.md` § *Design Constraints* (lateral / angular / boomerang only). This section exists so that *if* that rule is ever relaxed, the LemLib asset machinery does **not** come along with it.
@@ -193,7 +236,7 @@ The inherited two-block layout updated `prevVertical` / `prevHorizontal` *betwee
 These are tracked in `CLAUDE.md` § *Deferred Decisions*; listed here so this doc stays a one-stop reference:
 
 - **Odometry thread-safety** (`pros::Mutex` around `odomPose` / `odomSpeed`).
-- ~~**Odom sensor injection**~~ — **resolved**. `OdomSensors` is now a member of `Chassis`, initialized via the constructor, and `odom.cpp` reads through `chassis.odomSensors` by `#include "config.h"`.
+- ~~**Odom sensor injection**~~ — **resolved**. `OdomSensors` is now a member of `Chassis`, initialized via the constructor, and `odom.cpp` reads through the active-chassis pointer `Chs->odomSensors` by `#include "config.h"`.
 - **Kalman filter pass** over local speed.
 - **Command-based abstraction.**
 - **Async motion support / motion queue.** Currently disallowed. Flagged by Winyeh as a possible future addition once blocking-only routes show their limits. Until then: no `pros::Task`-backed motions, no queue, no `bool async` params, no `waitUntilDone`/`cancelMotion`.

@@ -216,5 +216,5 @@ class Pose
  * @param pose
  * @return std::string
  */
-std::string format_as(const Pose& pose);
+std::string pose_format_as(const Pose& pose);
 } // namespace WinLib

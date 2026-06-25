@@ -27,5 +27,7 @@ void TrackingWheel::reset()
 
 
 /* OdomSensors */
-OdomSensors::OdomSensors(TrackingWheel* vertical, TrackingWheel* horizontal, CustomIMU* imu)
-            : vertical(vertical), horizontal(horizontal), imu(imu) {}
+OdomSensors::OdomSensors(TrackingWheel* vertical, TrackingWheel* horizontal, CustomIMU* imu,
+                         OdomMode mode, float imuTrust)
+            : vertical(vertical), horizontal(horizontal), imu(imu),
+              mode(mode), imuTrust(imuTrust) {}

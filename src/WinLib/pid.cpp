@@ -8,7 +8,8 @@ PID::PID(float kP, float kI, float kD, float windupRange)
     : kP(kP),
       kI(kI),
       kD(kD),
-      windupRange(windupRange) {}
+      // windupRange is a magnitude (an |error| threshold), so force it positive.
+      windupRange(std::fabs(windupRange)) {}
 
 float PID::compute(const float error)
 {
@@ -38,7 +39,7 @@ void PID::reset() {
 void PID::setkP(float newkP) { this->kP = newkP; }
 void PID::setkI(float newkI) { this->kI = newkI; }
 void PID::setkD(float newkD) { this->kD = newkD; }
-void PID::setWindupRange(float newWindupRange) { this->windupRange = newWindupRange; }
+void PID::setWindupRange(float newWindupRange) { this->windupRange = std::fabs(newWindupRange); }
 
 float PID::getkP() const { return kP; }
 float PID::getkI() const { return kI; }

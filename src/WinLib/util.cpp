@@ -42,6 +42,15 @@ float WinLib::ema(float current, float previous, float smooth)
     return (current * smooth) + (previous * (1 - smooth));
 }
 
+float WinLib::blendByTrust(float primary, float secondary, float trust)
+{
+    // Same arithmetic as ema() above, DIFFERENT purpose: this fuses two
+    // simultaneous sensor readings by how much we trust each one (a
+    // complementary filter), whereas ema() smooths ONE signal across time.
+    // `primary` is the trusted sensor, `secondary` the backup, `trust` its weight.
+    return (primary * trust) + (secondary * (1 - trust));
+}
+
 float WinLib::clamp(float input, float max, float min)
 {
     // Order matters: floor first, then ceiling.

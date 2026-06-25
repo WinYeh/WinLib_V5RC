@@ -51,7 +51,7 @@ WinLib::Pose WinLib::Pose::rotate(float angle) const
                         this->x * std::sin(angle) + this->y * std::cos(angle), this->theta);
 }
 
-std::string WinLib::format_as(const WinLib::Pose& pose) 
+std::string WinLib::pose_format_as(const WinLib::Pose& pose) 
 {
     // same logic as printf("Pose { x: %.2f, y: %.2f, theta: %.2f }, pose.x, pose.y, pose.theta);  
     return "Pose { x: " + std::to_string(pose.x) +

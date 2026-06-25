@@ -78,12 +78,36 @@ float avg(std::vector<float> values);
  * @param smooth smoothing factor (0-1). 1 means no smoothing, 0 means no change
  * @return float - the smoothed output
  *
+ * @note blendByTrust() uses this exact same arithmetic for a different job:
+ *       fusing two sensors by trust at one instant, not smoothing one signal
+ *       across time. See blendByTrust().
+ *
  * @b Example
  * @code {.cpp}
  * ema(10, 0, 0.5); // returns 5
  * @endcode
  */
 float ema(float current, float previous, float smooth);
+
+/**
+ * @brief Blend two simultaneous readings by how much each is trusted.
+ *
+ * A complementary filter: fuses a trusted `primary` sensor with a backup
+ * `secondary` sensor in one shot, weighting by `trust`. Used to combine the IMU
+ * heading (primary) with the drivetrain-derived heading (secondary) in the
+ * drivetrain odom mode.
+ *
+ * @note Identical arithmetic to ema(), but a different purpose. ema() smooths
+ *       ONE signal across time (its `previous` is that signal's own last
+ *       output); blendByTrust() fuses TWO sensors at the same instant (its
+ *       `secondary` is a different sensor). Same formula, different meaning.
+ *
+ * @param primary   the trusted reading
+ * @param secondary the backup reading
+ * @param trust     weight on `primary`, 0..1 (1 = all primary, 0 = all secondary)
+ * @return float    primary*trust + secondary*(1 - trust)
+ */
+float blendByTrust(float primary, float secondary, float trust);
 
 /**
  * @brief Clamp a value to the [min, max] range.

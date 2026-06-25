@@ -5,7 +5,8 @@
 using namespace WinLib;
 
 ExitCondition::ExitCondition(const float range, const int time)
-    : range(range),
+    // range is a magnitude (an |error| window), so force it positive.
+    : range(std::fabs(range)),
       time(time) {}
 
 bool ExitCondition::getExit() 
@@ -33,7 +34,7 @@ void ExitCondition::reset()
 
 void ExitCondition::setRange(const float newRange)
 {
-    range = newRange;
+    range = std::fabs(newRange);   // range is a magnitude — keep it positive
     reset();
 }
 

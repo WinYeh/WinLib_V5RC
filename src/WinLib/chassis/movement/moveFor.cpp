@@ -5,7 +5,6 @@
 #include "WinLib/timer.hpp"
 #include "WinLib/util.hpp"
 #include "WinLib/debugPrint.hpp"
-#include "config.h"
 #include "pros/rtos.hpp"
 #include <cmath>
 
@@ -21,9 +20,15 @@ void Chassis::moveFor(float distance, float theta, int timeout, LateralParams pa
 
     Timer timer(timeout);
 
-    // reset dt encoders to 0 
-    chassis.drivetrain.leftMotors->tare_position();
-    chassis.drivetrain.rightMotors->tare_position();
+    // Capture the starting encoder reading instead of taring.
+    // The drivetrain encoders are a SHARED resource: the drivetrain odom mode
+    // reads them every tick to derive heading from the left/right difference.
+    // Taring (resetting the counter to 0) would look to that reader like the
+    // robot suddenly lurched backward, corrupting the pose. So we leave the
+    // counters running continuously and measure this move's distance relative
+    // to the start offset captured here.
+    float lateral_start = 0.5 * (this->drivetrain.rightMotors->get_position()
+                               + this->drivetrain.leftMotors->get_position()); // in degrees
 
     /* ______________________________ LATERAL INITIALIZATION _____________________________*/
     float lateral_error = 0;
@@ -86,22 +91,24 @@ void Chassis::moveFor(float distance, float theta, int timeout, LateralParams pa
     while (!timer.isDone())
     {
         /* _____________________________________ LATERAL _______________________________________*/
-        // Current distance. Average the two sides of the chhasis to get a single distance reading, in degrees. 
-        float lateral_curr = 0.5 * (chassis.drivetrain.rightMotors->get_position() + chassis.drivetrain.leftMotors->get_position() ); // in degrees
+        // Distance traveled since the move began. Average the two sides of the
+        // chassis, then subtract the start offset (the encoders are never tared,
+        // so the raw reading carries the whole match's accumulated rotation).
+        float lateral_curr = 0.5 * (this->drivetrain.rightMotors->get_position() + this->drivetrain.leftMotors->get_position() ) - lateral_start; // in degrees
 
         // Signed distance error.
-        float lateral_error = lateral_target - lateral_curr;
+        lateral_error = lateral_target - lateral_curr;
 
         // Feed |error| to the exit condition and check it.
         //  - exit fires after |error| stays inside exitRange for exitTimeout ms.
         //  - earlyExitRange is an instantaneous "close enough" threshold,
         //    only meaningful when minSpeed > 0 (since with no floor the PID
         //    would keep pushing past it anyway).
-        exit.update(std::fabs(lateral_error));
+        exit.update(lateral_error);
 
         if (exit.getExit())
             break;
-        if (std::fabs(lateral_error) < params.earlyExitRange)
+        if (std::fabs(lateral_error) < std::fabs(params.earlyExitRange))
             break;
 
         // PID output, in volts.
@@ -161,5 +168,6 @@ void Chassis::moveFor(float distance, float theta, int timeout, LateralParams pa
     move_voltage(0, 0);
     setBrakeMode(pros::E_MOTOR_BRAKE_HOLD);
     
-    printf ("moveFor done, error = %.2f---\n", lateral_error);
+    printf ("moveFor done, error = %.2f, heading = %.2f\n", lateral_error, getHeading());
+    printf ("batteryLevel: %.0f\n", pros::c::battery_get_capacity());
 }

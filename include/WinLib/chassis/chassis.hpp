@@ -214,8 +214,12 @@ public:
     void setBrakeMode(pros::motor_brake_mode_e mode);
     /** Reset the robot's (x, y) without touching heading. */
     void resetPosition();
+    /** Motor cartridge free-speed rpm (100/200/600), read from the left drivetrain group. */
+    float motorRPM();
     /** Convert millimeters to degrees based on the wheel diameter. */
     float MMTodeg(float distance);
+    /** Convert motor-shaft degrees back to millimeters of travel (inverse of MMTodeg). */
+    float degToMM(float degrees);   
 
     // ---- direct motor control (raw, bypasses PID and motion logic) ----
     /**
@@ -242,6 +246,7 @@ public:
     void moveToPoint  (float x, float y,              int timeout, LateralParams   params = {});
     void moveFor      (float distance, float theta,   int timeout, LateralParams   params = {});
     void turnToHeading(float theta,                   int timeout, AngularParams   params = {});
+    void turnBy       (float angle,                   int timeout, AngularParams   params = {});
     void turnToPoint  (float x, float y,              int timeout, AngularParams   params = {});
     void boomerang    (float x, float y, float theta, int timeout, BoomerangParams params = {});
 

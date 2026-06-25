@@ -70,11 +70,11 @@ void Chassis::turnToHeading(float theta, int timeout, AngularParams params)
         //  - earlyExitRange is an instantaneous "close enough" threshold,
         //    only meaningful when minSpeed > 0 (since with no floor the PID
         //    would keep pushing past it anyway).
-        exit.update(std::fabs(error));
+        exit.update(error);
 
         if (exit.getExit())
             break;
-        if (std::fabs(error) < params.earlyExitRange)
+        if (std::fabs(error) < std::fabs(params.earlyExitRange))
             break;
 
         // PID output, in volts.
@@ -113,6 +113,6 @@ void Chassis::turnToHeading(float theta, int timeout, AngularParams params)
     move_voltage(0, 0);
     setBrakeMode(pros::E_MOTOR_BRAKE_HOLD);
    
-    printf ("turnToHeading (%.1f) done, error = %.2f, imu = %.2f---\n", target, error, getPose(false).theta);
+    printf ("turnToHeading (%.1f) done, error = %.2f, imu = %.2f---\n", target, error, getHeading() );
     printf ("batteryLevel: %.0f\n", pros::c::battery_get_capacity());
 }

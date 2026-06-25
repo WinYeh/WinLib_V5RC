@@ -73,28 +73,38 @@ void Chassis::resetPosition() {
     dsr.reset();
 }
 
-/* This function converts millimeters to degrees based on the wheel diameter and 
-only used for converting target distances to motor positions */
+/* Motor cartridge free-speed rpm (red=100, green=200, blue=600), read from the
+   left drivetrain group's installed gearset. This is the MOTOR shaft speed, not
+   the wheel speed — the external gearing down to the wheel is drivetrain.rpm.
+   Both MMTodeg and degToMM use it, so the gearset switch lives in one place. */
+float Chassis::motorRPM()
+{
+    switch (drivetrain.leftMotors->get_gearing())
+    {
+        case pros::v5::MotorGears::red:   return 100.0f;
+        case pros::v5::MotorGears::green: return 200.0f;
+        case pros::v5::MotorGears::blue:  return 600.0f;
+        default:                          return 600.0f; // unknown gearing → assume blue
+    }
+}
+
+/* Convert millimeters of robot travel to motor-shaft degrees. Used to turn a
+   target distance into an encoder setpoint for moveFor. */
 float Chassis::MMTodeg(float distance)
 {
-    float MOTOR_RPM = 0;
-    switch(drivetrain.leftMotors->get_gearing() ) 
-    {
-        case pros::v5::MotorGears::red:
-            MOTOR_RPM = 100;
-            break;
-        case pros::v5::MotorGears::green:
-            MOTOR_RPM = 200;
-            break;
-        case pros::v5::MotorGears::blue:
-            MOTOR_RPM = 600;
-            break;
-        default:
-            MOTOR_RPM = 600; // default to 600 if gearing is unknown
-    }
-    float gearRatio = MOTOR_RPM / drivetrain.rpm;
+    float gearRatio = motorRPM() / drivetrain.rpm;
     float wheelCircumferenceMM = drivetrain.wheelDiameter * M_PI * 25.4; // in mm
     return distance / wheelCircumferenceMM * 360.0f * gearRatio; // in degrees
+}
+
+/* Inverse of MMTodeg: convert motor-shaft degrees back into millimeters of robot
+   travel. Used by the drivetrain odom mode to turn raw encoder readings into
+   distances. */
+float Chassis::degToMM(float degrees)
+{
+    float gearRatio = motorRPM() / drivetrain.rpm;
+    float wheelCircumferenceMM = drivetrain.wheelDiameter * M_PI * 25.4; // in mm
+    return degrees / 360.0f / gearRatio * wheelCircumferenceMM; // in mm
 }
 
 
