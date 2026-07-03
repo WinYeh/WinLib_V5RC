@@ -52,6 +52,9 @@ void Chassis::moveFor(float distance, float theta, int timeout, LateralParams pa
                     lateralSettings.kD,
                     lateralSettings.windupRange);
     
+    // LateralParams::maxSpeed limited down to 11 volts for heading adjusment headroom
+    params.maxSpeed = std::min(params.maxSpeed, 10.5f);
+    
     /* _______________________________ ANGULAR INITIALIZATION _________________________________*/
 
     float angular_error = 0;
@@ -65,15 +68,7 @@ void Chassis::moveFor(float distance, float theta, int timeout, LateralParams pa
     // carry a gain-schedule curve, pick kP from that size ONCE here (a big swing
     // gets a gentle kP, a tiny correction a snappy one); otherwise fall back to
     // the plain constant kP. Either way kP is fixed for the whole motion.
-    float initial_angularError = angleError(angular_target, getHeading(), /*radians=*/false, AngularDirection::AUTO);
-    float angular_kP = angularSettings.gains
-                  ? asymptoticGain(std::fabs(initial_angularError),
-                                    angularSettings.gains->initial,
-                                      angularSettings.gains->final,
-                                       angularSettings.gains->knee,
-                                      angularSettings.gains->power)
-                  : angularSettings.kP;
-
+    float angular_kP = 0.075; 
     angular_PID angular_pid(angular_kP,
                             angularSettings.kI,
                             angularSettings.kD,
@@ -139,13 +134,14 @@ void Chassis::moveFor(float distance, float theta, int timeout, LateralParams pa
 
         // Clamp to [-maxSpeed, +maxSpeed]. maxSpeed is in volts; the
         // hardware ceiling is 12 V, but the caller may want a slower turn.
-        angular_output = clamp(angular_output, +2.0, -2.0);     
+        angular_output = clamp(angular_output, +1., -1.);     
         
         /* __________________________________ INTEGRATION ____________________________________ */
 
         // Mix for in-place rotation (see sign convention at top of file).
         // Chassis::move_voltage signature is (left, right).
-        move_voltage(lateral_output + angular_output, lateral_output - angular_output);
+        move_voltage(lateral_output + angular_output, 
+                     lateral_output - angular_output);
 
         /* __________________________________ DEBUG PRINT ____________________________________ */
 
@@ -158,6 +154,7 @@ void Chassis::moveFor(float distance, float theta, int timeout, LateralParams pa
         {
             debugPID("lat", lateral_error, lateral_output, lateral_pid);
             debugPID("ang", angular_error, angular_output, angular_pid);
+            printf("\n");
             lastDebug = pros::millis();
         }
 
@@ -169,5 +166,5 @@ void Chassis::moveFor(float distance, float theta, int timeout, LateralParams pa
     setBrakeMode(pros::E_MOTOR_BRAKE_HOLD);
     
     printf ("moveFor done, error = %.2f, heading = %.2f\n", lateral_error, getHeading());
-    printf ("batteryLevel: %.0f\n", pros::c::battery_get_capacity());
+    printf ("batteryLevel: %.0f\n\n\n", pros::c::battery_get_capacity());
 }

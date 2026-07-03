@@ -45,7 +45,7 @@ struct Drivetrain
     float trackWidth;       // inches — distance between left and right wheels
     float wheelDiameter;    // inches
     float rpm;              // rpm at the wheel (after gearing)
-    float horizontalDrift;  // cornering grip ceiling, used by boomerang.
+    float horizontalDrift;  // cornering grip ceiling, used by moveToPose (boomerang).
                             // 2 for all-omni, 8 with traction wheels.
 };
 
@@ -157,7 +157,7 @@ struct AngularParams {
     float earlyExitRange = 0;
 };
 
-struct BoomerangParams {
+struct MoveToPoseParams {
     /** Approach the pose facing forwards (true) or backwards (false). */
     bool  forwards       = true;
     /** Carrot-point multiplier, 0–1. Higher → curvier path. 0.6 is a sane default. */
@@ -195,7 +195,7 @@ struct BoomerangParams {
  * void autonomous() {
  *     chassis.moveToPoint(48, 24, 2000);
  *     chassis.turnToHeading(90, 1000, {.maxSpeed = 80});
- *     chassis.boomerang(60, 60, 90, 4000, {.lead = 0.4});
+ *     chassis.moveToPose(60, 60, 90, 4000, {.lead = 0.4});
  * }
  * @endcode
  */
@@ -248,7 +248,7 @@ public:
     void turnToHeading(float theta,                   int timeout, AngularParams   params = {});
     void turnBy       (float angle,                   int timeout, AngularParams   params = {});
     void turnToPoint  (float x, float y,              int timeout, AngularParams   params = {});
-    void boomerang    (float x, float y, float theta, int timeout, BoomerangParams params = {});
+    void moveToPose   (float x, float y, float theta, int timeout, MoveToPoseParams params = {});
 
     // ---- opcontrol drive ----
     /**

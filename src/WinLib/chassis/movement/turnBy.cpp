@@ -112,6 +112,7 @@ void Chassis::turnBy(float angle, int timeout, AngularParams params)
         {
             debugPID("turnBy", error, output, pid);
             printf("theta: %.2f\n", getPose(false).theta);
+            printf("\n"); 
             lastDebug = pros::millis();
         }
 
@@ -125,5 +126,5 @@ void Chassis::turnBy(float angle, int timeout, AngularParams params)
 
     printf("turnBy (%.1f) done, error = %.2f, heading = %.2f---\n",
            angle, error, getHeading());
-    printf("batteryLevel: %.0f\n", pros::c::battery_get_capacity());
+    printf("batteryLevel: %.0f\n\n\n", pros::c::battery_get_capacity());
 }

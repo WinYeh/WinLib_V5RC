@@ -102,6 +102,7 @@ void Chassis::turnToHeading(float theta, int timeout, AngularParams params)
             pros::millis() - lastDebug >= (uint32_t)debugRefreshTime)
         {
             debugPID("ang", error, output, pid);
+            printf("\n");
             lastDebug = pros::millis();
         }
 
@@ -114,5 +115,5 @@ void Chassis::turnToHeading(float theta, int timeout, AngularParams params)
     setBrakeMode(pros::E_MOTOR_BRAKE_HOLD);
    
     printf ("turnToHeading (%.1f) done, error = %.2f, imu = %.2f---\n", target, error, getHeading() );
-    printf ("batteryLevel: %.0f\n", pros::c::battery_get_capacity());
+    printf ("batteryLevel: %.0f\n\n\n", pros::c::battery_get_capacity());
 }

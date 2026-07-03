@@ -75,7 +75,7 @@ namespace ace
 
     extern WinLib::CustomIMU imu1, imu2;
     extern pros::Rotation rot_V, rot_H;
-    extern pros::Distance dist_F, dist_R, dist_L;
+    extern pros::Distance dist_F, dist_R, dist_B, dist_L;
 
     // ace subsystems
     extern pros::Motor           intake; 

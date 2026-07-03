@@ -13,7 +13,8 @@
 using namespace WinLib;
 
 /* =============================================================================
- * boomerang() — drive to (x, y) AND arrive facing heading `theta`.
+ * moveToPose() — drive to (x, y) AND arrive facing heading `theta`.
+ * (This is the "boomerang" controller; LemLib exposes it under this name.)
  *
  * THE ONE TRICK: the robot never chases the real target. It chases a fake,
  * moving target called the CARROT, placed a little BEHIND the real target along
@@ -43,7 +44,7 @@ using namespace WinLib;
  * vector for a heading H is (sin H, cos H), not the textbook (cos H, sin H).
  * Every sin/cos below follows that convention.
  * =========================================================================== */
-void Chassis::boomerang(float x, float y, float theta, int timeout, BoomerangParams params)
+void Chassis::moveToPose(float x, float y, float theta, int timeout, MoveToPoseParams params)
 {
     /* ________________________________ INITIALIZATION _________________________________*/
     // Fresh exit condition + timer every call → clean integral / timer state.
@@ -60,8 +61,11 @@ void Chassis::boomerang(float x, float y, float theta, int timeout, BoomerangPar
                           ? std::fmod(theta, 360.0f) + 360.0f
                           : std::fmod(theta, 360.0f));
 
-    // Boomerang stays on the CONSTANT-kP fallback (no asymptotic gain schedule),
-    // because the changing carrot already varies the effective error shape.
+    // Constant kP on both axes — no asymptotic gain schedule. This matches
+    // Genesis's movePosePlus, which hardcodes setKp (setKp(1) lateral, setKp(180)
+    // turn) so its asymptotic "curve" just evaluates to a fixed constant too.
+    // Nothing stops us from scheduling the lateral kP off the initial straight-line
+    // distance later; we keep it constant to match the reference and stay simple.
     PID         lateral_pid(lateralSettings.kP, lateralSettings.kI,
                             lateralSettings.kD, lateralSettings.windupRange);
     angular_PID angular_pid(angularSettings.kP, angularSettings.kI,
@@ -184,10 +188,11 @@ void Chassis::boomerang(float x, float y, float theta, int timeout, BoomerangPar
         if (debugRefreshTime > 0 &&
             pros::millis() - lastDebug >= (uint32_t)debugRefreshTime)
         {
-            printf("boom: dist=%.0f close=%d carrot=(%.0f,%.0f)\n",
+            printf("boom: dist=%.0f close=%d carrot=(%.0f,%.0f)",
                    distTarget, close, carrot.x, carrot.y);
             debugPID("lat", MMTodeg(lateralError), lateral_output, lateral_pid);
             debugPID("ang", angularError,          angular_output, angular_pid);
+            printf("\n");
             lastDebug = pros::millis();
         }
 
@@ -201,5 +206,5 @@ void Chassis::boomerang(float x, float y, float theta, int timeout, BoomerangPar
 
     printf("boomerang done: dist=%.2f heading=%.2f (target theta=%.1f)\n",
            lateralError, getHeading(), target.theta);
-    printf("batteryLevel: %.0f\n", pros::c::battery_get_capacity());
+    printf("batteryLevel: %.0f\n\n\n", pros::c::battery_get_capacity());
 }

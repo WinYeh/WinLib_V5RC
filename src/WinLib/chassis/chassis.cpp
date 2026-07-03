@@ -1,9 +1,9 @@
 // chassis.cpp
 //
 // Glue methods of the Chassis class — constructor and the small one-shots
-// that don't deserve their own file: calibrate, setBrakeMode, resetLocalPosition.
+// that don't deserve their own file: calibrate, setBrakeMode, resetPosition.
 //
-// The autonomous-motion methods (moveToPoint, turnToHeading, boomerang, ...)
+// The autonomous-motion methods (moveToPoint, turnToHeading, moveToPose, ...)
 // live in chassis/movement/<motion>.cpp.
 // The opcontrol methods (tank, arcade, curvature) live in chassis/opcontrol.cpp.
 
@@ -57,8 +57,17 @@ void Chassis::calibrate(bool calibrateIMU)
 // Forwards to both motor groups. We guard against null in case a unit test
 // or an in-progress wiring leaves a side unconnected.
 void Chassis::setBrakeMode(pros::motor_brake_mode_e mode) {
-    if (drivetrain.leftMotors  != nullptr) drivetrain.leftMotors ->set_brake_mode(mode);
-    if (drivetrain.rightMotors != nullptr) drivetrain.rightMotors->set_brake_mode(mode);
+    if (drivetrain.leftMotors  != nullptr) 
+    {
+        drivetrain.leftMotors ->set_brake_mode(mode);
+        drivetrain.leftMotors->brake(); 
+
+    }
+    if (drivetrain.rightMotors != nullptr) 
+    {
+        drivetrain.rightMotors->set_brake_mode(mode);
+        drivetrain.rightMotors->brake(); 
+    }
 }
 
 

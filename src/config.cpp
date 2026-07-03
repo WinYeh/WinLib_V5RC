@@ -60,7 +60,7 @@ namespace test
     // ---- Drivetrain ----
     // Holds raw pointers to the motor groups above. Track width and wheel
     // dimensions describe the physical robot; horizontalDrift is the cornering
-    // grip ceiling used by boomerang.
+    // grip ceiling used by moveToPose.
     // TODO: replace placeholder dimensions with measurements from the real robot.
     WinLib::Drivetrain drivetrain {
         &chassis_left,
@@ -71,7 +71,7 @@ namespace test
         /*horizontalDrift=*/ 2                            // 2 for all-omni, 8 with traction wheels
     };
 
-    // ---- Lateral controller (moveToPoint / moveFor / boomerang) ----
+    // ---- Lateral controller (moveToPoint / moveFor / moveToPose) ----
     // Error in mm, output in volts (0–12). Gains are V per mm of error.
     // NOTE: the knee is in the motion's OWN error units. moveFor works in MOTOR
     // degrees (via MMTodeg, ~1 motor-deg per mm on 3.25" wheels), so knee is in
@@ -89,10 +89,10 @@ namespace test
         )
     );
 
-    // ---- Angular controller (turnToHeading / turnToPoint / boomerang) ----
+    // ---- Angular controller (turnToHeading / turnToPoint / moveToPose) ----
     // Error in degrees, output in volts. Gains are V per degree. The 3rd ctor arg
     // enables kP scheduling on turns: big swings get a low kP (gentle), tiny
-    // corrections get a high kP (snappy). The constant kP is the fallback boomerang uses.
+    // corrections get a high kP (snappy). The constant kP is the fallback moveToPose uses.
     WinLib::ControllerSettings angularSettings(
         WinLib::angular_PID(
             /*kP=*/          0.21f,    // fallback when scheduling off
@@ -238,15 +238,16 @@ namespace ace
     pros::MotorGroup chassis_right ( {2, 3, 4},     pros::v5::MotorGears::blue, pros::v5::MotorUnits::degrees);
 
     // imu (see note in test::imu1 about re-measuring the scalar)
-    WinLib::CustomIMU imu1 (15, 1.0);
+    WinLib::CustomIMU imu1 (7, 1.0);
     WinLib::CustomIMU imu2 (0,  1.0);
 
     // rotational sensors
-    pros::Rotation rot_V (6);    // vertical encoder
-    pros::Rotation rot_H (14);   // horizontal encoder
+    pros::Rotation rot_V (6);   // vertical encoder
+    pros::Rotation rot_H (0);   // horizontal encoder
 
     // distance sensors
     pros::Distance dist_F (0);
+    pros::Distance dist_B (0); 
     pros::Distance dist_R (0);
     pros::Distance dist_L (0);
 
@@ -256,41 +257,41 @@ namespace ace
     pros::Motor           cascade (20, pros::v5::MotorGears::green, pros::v5::MotorUnits::degrees);
     pros::adi::DigitalOut claw ('A', false);
 
-    // ---- Drivetrain ----  TODO: measure real dimensions.
+    // ---- Drivetrain ----  
     WinLib::Drivetrain drivetrain {
         &chassis_left,
         &chassis_right,
-        /*trackWidth=*/      12.0f,                       // inches
-        /*wheelDiameter=*/   WinLib::Omniwheel::NEW_325,  // inches
-        /*rpm=*/             360,                         // wheel rpm
+        /*trackWidth=*/      11.45f,                      // inches
+        /*wheelDiameter=*/   WinLib::Omniwheel::NEW_275,  // inches
+        /*rpm=*/             450,                         // wheel rpm
         /*horizontalDrift=*/ 2
     };
 
     // ---- Lateral / angular controllers ----  TODO: tune on the real robot.
     WinLib::ControllerSettings lateralSettings(
-        WinLib::linear_PID(/*kP=*/ 0.027f, /*kI=*/ 0, /*kD=*/ 0.0000f, /*windupRange=*/ 50),
+        WinLib::linear_PID(/*kP=*/ 0.01f, /*kI=*/ 0, /*kD=*/ 0.05f, /*windupRange=*/ 50),
         WinLib::ExitCondition(/*range=*/ 10, /*time=*/ 100)
+        // WinLib::AsymptoticGains{ /*initial=*/ 0.2f, /*final=*/ 0.09f, /*knee=*/ 90.0f, /*power=*/ 5.f }
     );
     WinLib::ControllerSettings angularSettings(
-        WinLib::angular_PID(/*kP=*/ 0.21f, /*kI=*/ 0, /*kD=*/ 1.2f, /*windupRange=*/ 5),
+        WinLib::angular_PID(/*kP=*/ 0.15f, /*kI=*/ 0.0f, /*kD=*/ 0.425f, /*windupRange=*/ 5),
         WinLib::ExitCondition(/*range=*/ 1.5, /*time=*/ 100),
-        WinLib::AsymptoticGains{ /*initial=*/ 0.26f, /*final=*/ 0.165f, /*knee=*/ 90.0f, /*power=*/ 5.f }
+        WinLib::AsymptoticGains{ /*initial(30deg)=*/ 0.2f, /*final(180deg)=*/ 0.09f, /*knee=*/ 90.0f, /*power=*/ 5.f }
     );
 
     // ---- OdomSensors ----
-    WinLib::TrackingWheel vertical_tracking_wheel(   &rot_V, WinLib::Omniwheel::NEW_2, 0);
-    WinLib::TrackingWheel horizontal_tracking_wheel( &rot_H, WinLib::Omniwheel::NEW_2, 47);
+    WinLib::TrackingWheel vertical_tracking_wheel(&rot_V, WinLib::Omniwheel::NEW_2, 0);
     WinLib::OdomSensors odom_sensors(
-        /*vertical=*/ &vertical_tracking_wheel, /*horizontal=*/ &horizontal_tracking_wheel,
-        /*imu=*/ &imu1, /*mode=*/ WinLib::OdomMode::TW2, /*imuTrust=*/ 0.98f
+        /*vertical=*/ &vertical_tracking_wheel, /*horizontal=*/ nullptr,
+        /*imu=*/ &imu1, /*mode=*/ WinLib::OdomMode::VPD, /*imuTrust=*/ 0.98f
     );
 
     // ---- DSR ----  TODO: measure each sensor's (X, Y) offset.
     WinLib::DSR dsr(
-        /*front=*/ &dist_F, /*frontOffsetX=*/ 0,    /*frontOffsetY=*/ 165,
-        /*back=*/  nullptr, /*backOffsetX=*/  0,    /*backOffsetY=*/  0,
-        /*left=*/  &dist_L, /*leftOffsetX=*/  140,  /*leftOffsetY=*/  0,
-        /*right=*/ &dist_R, /*rightOffsetX=*/ -140, /*rightOffsetY=*/ 0
+        /*front=*/ &dist_F, /*frontOffsetX=*/ 0,    /*frontOffsetY=*/ 0,
+        /*back=*/  &dist_B, /*backOffsetX=*/  0,    /*backOffsetY=*/  0,
+        /*left=*/  &dist_L, /*leftOffsetX=*/  0,    /*leftOffsetY=*/  0,
+        /*right=*/ &dist_R, /*rightOffsetX=*/ 0,    /*rightOffsetY=*/ 0
     );
 
     // ---- Chassis ----
