@@ -101,7 +101,7 @@ This is the same two-layer pattern WinLib uses, but Genesis relies heavily on OO
 #### `moveToPose(x, y, theta, timeout, params)` — "Boomerang Controller"
 - **What:** Drives to (x, y) AND arrives facing heading theta
 - **How:** Uses a "carrot point" — an intermediate target that creates a curved path so the robot approaches from the correct angle. Also limits speed based on path curvature to prevent wheel slip.
-- **WinLib status:** We are NOT implementing this (too complex for beginners)
+- **WinLib status:** IMPLEMENTED (added for the 2026–27 Override season) as `Chassis::boomerang` in `chassis/movement/boomerang.cpp` — a minimal teaching version: it keeps the carrot + collapse-on-close + final-heading lock, but drops the curvature-based slip-speed limit and the far-away `sgn(cos)` speed trick, and uses constant kP. See `CHANGES_FROM_REFERENCE.md` → *Movement / Motions*.
 
 #### `turnToHeading(theta, timeout, params)`
 - **What:** Rotates robot in place to face a specific heading
