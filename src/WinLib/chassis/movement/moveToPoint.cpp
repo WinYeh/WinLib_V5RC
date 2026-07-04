@@ -89,7 +89,11 @@ void Chassis::moveToPoint(float x, float y, int timeout, LateralParams params)
         /* ____________________________________ ANGULAR ______________________________________*/
         // Aim the leading end (front, or the back if reversing) straight at the
         // point — no carrot, that is moveToPose's job.
-        float robotHeading = forwards ? getHeading() : getHeading() + 180.0f;
+        // Keep this a valid [0, 360) heading: getHeading() + 180 can reach ~540°,
+        // and angleError only wraps once, so it can't fix an error that's off by
+        // more than a full turn. fmod folds the back-heading back into range.
+        float robotHeading = forwards ? getHeading()
+                                      : std::fmod(getHeading() + 180.0f, 360.0f);
         float dx = target.x - pose.x;
         float dy = target.y - pose.y;
         float aimHeading = RadToDeg(std::atan2(dx, dy));   // (sin,cos) convention
@@ -144,6 +148,7 @@ void Chassis::moveToPoint(float x, float y, int timeout, LateralParams params)
         if (debugRefreshTime > 0 &&
             pros::millis() - lastDebug >= (uint32_t)debugRefreshTime)
         {
+            debugPose(pose, target);   // [pose] x=.. y=.. theta=..deg | tgt=(..,..) dist=..
             printf("mtp: dist=%.0f close=%d\n", distTarget, close);
             debugPID("lat", MMTodeg(lateralError), lateral_output, lateral_pid);
             debugPID("ang", angularError,          angular_output, angular_pid);

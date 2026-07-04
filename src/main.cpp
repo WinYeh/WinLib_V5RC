@@ -37,29 +37,38 @@ void autonomous()
 {
 	printf("auton begins---\n");
 
-	Chs->moveToPoint(0, 600, 3000, {.maxSpeed = 8.0});
+	/*
+	Chs->moveToPoint(0, 600, 3000, {.maxSpeed = 12.0});
 	{
 		WinLib::Pose p = WinLib::getPose(false);
-		printf("after moveToPoint: (%.0f, %.0f, %.0f)\n", p.x, p.y, p.theta);
+		printf("after moveToPoint(0, 600): (%.0f, %.0f, %.0f)\n", p.x, p.y, p.theta);
 	}
-	pros::delay(500);
 
-	Chs->moveToPose(600, 600, 90, 4000, {.lead = 0.5, .maxSpeed = 8.0});
+	Chs->moveToPoint(0, 0, 3000, {.forwards = -1, .maxSpeed = 12.0});
+	pros::delay(500); 
+	{
+		WinLib::Pose p = WinLib::getPose(false);
+		printf("after moveToPoint(0, 0): (%.0f, %.0f, %.0f)\n", p.x, p.y, p.theta);
+	}
+	*/
+
+	Chs->moveToPose(-600, 600, 270, 4000, {.lead = 0.3, .maxSpeed = 12., .minSpeed = 1.5, .earlyExitRange = 20});
 
 	WinLib::Pose pose = WinLib::getPose(false);
-	printf("after moveToPose: (%.1f, %.1f, %.1f)\n", pose.x, pose.y, pose.theta);
+	printf("after moveToPose(-600, 600, 270): (%.1f, %.1f, %.1f)\n", pose.x, pose.y, pose.theta);
 }
 
 void opcontrol() 
 {
 	competition_initialize(); // for testing purposes
+	autonomous();		// for testing purposes 
 	float last_update = pros::millis();
 
-	float targetHead = 180; 
+	// float targetHead = 180; 
 	while (true)
 	{	
-		if (master.get_digital(pros::E_CONTROLLER_DIGITAL_A)) 
-		{
+		// if (master.get_digital(pros::E_CONTROLLER_DIGITAL_A)) 
+		// {
 			/* 
 			// Angular Gain Adjustment
 			Chs->turnBy(45, 2000, {.maxSpeed = 12.0, .minSpeed = 2.0, .earlyExitRange = 2});
@@ -71,20 +80,20 @@ void opcontrol()
 			*/
 		
 			// Lateral Gain Adjustment
-			Chs->moveFor(1800, 0, 2000, {.maxSpeed = 12.0, .minSpeed = 2.5, .earlyExitRange = 10});
-			Chs->moveFor(-1800, 0, 2000, {.maxSpeed = 12.0, .minSpeed = 2.5, .earlyExitRange = 10});
-		}
+			// Chs->moveFor(1800, 0, 2000, {.maxSpeed = 12.0, .minSpeed = 2.5, .earlyExitRange = 10});
+			// Chs->moveFor(-1800, 0, 2000, {.maxSpeed = 12.0, .minSpeed = 2.5, .earlyExitRange = 10});
+		// } 
 
 		float throttle = master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
 		float turn     = master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
 		Chs->arcade(throttle, turn);
 
-		/*if (pros::millis() - last_update >= 1000)
+		if (pros::millis() - last_update >= 1000)
 		{
 			WinLib::Pose pose = WinLib::getPose(false); 
 			printf("getPose() = (%.1f, %.1f, %.1f)\n", pose.x, pose.y, pose.theta);
 			last_update = pros::millis(); 
-		}*/
+		}
 
 		// ace::Ctr(); 
 		// dr4b::Ctr(); 

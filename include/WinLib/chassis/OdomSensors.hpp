@@ -71,6 +71,13 @@ namespace WinLib
                 return pros::c::imu_get_rotation(m_port) * m_scalar;
             }
 
+            void waitUntil_isCalibrated() const {
+                while (this->is_calibrating()) 
+                {
+                    pros::delay(10);
+                }
+            }
+
         private:
             const int    m_port;
             const double m_scalar;

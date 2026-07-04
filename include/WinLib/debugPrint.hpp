@@ -14,7 +14,7 @@ namespace WinLib
  * throttles AND turns debugging off. Set it to e.g. 50 while tuning, 0 for a
  * real match. Defaults to 0 (off).
  */
-extern int debugRefreshTime;
+extern const int debugRefreshTime;
 
 /**
  * @brief print one PID controller's telemetry for this tick to the terminal.

@@ -5,7 +5,7 @@
 using namespace WinLib;
 
 // Default off: nothing prints until the user raises this (e.g. in autonomous()).
-int WinLib::debugRefreshTime = 150;   // in ms
+constexpr int WinLib::debugRefreshTime = 150;   // in ms
 
 void WinLib::debugPID(const char* label, float error, float output, const PID& pid)
 {

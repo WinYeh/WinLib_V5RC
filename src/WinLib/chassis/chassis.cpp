@@ -9,7 +9,7 @@
 
 #include "WinLib/chassis/chassis.hpp"
 #include "WinLib/chassis/odom.hpp"
-#include "pros/rtos.hpp"
+#include "pros/rtos.hpp"              // IWYU pragma: keep
 
 using namespace WinLib;
 
@@ -44,12 +44,12 @@ void Chassis::calibrate(bool calibrateIMU)
 {
     if (calibrateIMU && odomSensors.imu != nullptr) 
     {
-        odomSensors.imu->reset(true);   // true = blocking
+        odomSensors.imu->reset(true);  
+        odomSensors.imu->waitUntil_isCalibrated();
     }
     if (odomSensors.vertical   != nullptr) odomSensors.vertical  ->reset();
     if (odomSensors.horizontal != nullptr) odomSensors.horizontal->reset();
     WinLib::OdomInit();  
-    pros::delay(3000); 
 }
 
 

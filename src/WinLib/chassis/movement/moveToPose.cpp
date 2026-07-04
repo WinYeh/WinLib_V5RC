@@ -115,7 +115,11 @@ void Chassis::moveToPose(float x, float y, float theta, int timeout, MoveToPoseP
         /* ____________________________________ ANGULAR ______________________________________*/
         // Which part of the robot we aim: its front (forwards) or, for a
         // backwards approach, its back (heading + 180°).
-        float robotHeading = params.forwards ? getHeading() : getHeading() + 180.0f;
+        // Keep this a valid [0, 360) heading: getHeading() + 180 can reach ~540°,
+        // and angleError only wraps once, so it can't fix an error that's off by
+        // more than a full turn. fmod folds the back-heading back into range.
+        float robotHeading = params.forwards ? getHeading()
+                                             : std::fmod(getHeading() + 180.0f, 360.0f);
 
         // What we point that part AT:
         //   far  → the carrot (this is what bends the path)
@@ -188,6 +192,7 @@ void Chassis::moveToPose(float x, float y, float theta, int timeout, MoveToPoseP
         if (debugRefreshTime > 0 &&
             pros::millis() - lastDebug >= (uint32_t)debugRefreshTime)
         {
+            debugPose(pose, target);   // [pose] x=.. y=.. theta=..deg | tgt=(..,..) dist=..
             printf("boom: dist=%.0f close=%d carrot=(%.0f,%.0f)",
                    distTarget, close, carrot.x, carrot.y);
             debugPID("lat", MMTodeg(lateralError), lateral_output, lateral_pid);

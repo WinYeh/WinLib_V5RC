@@ -25,7 +25,7 @@ double WinLib::angleError(double target, double curr, bool radians, WinLib::Angu
             return error < 0 ? error + max : error;     // add max if sign does not match
         case WinLib::AngularDirection::CCW_COUNTERCLOCKWISE:
             return error > 0 ? error - max : error;     // subtract max if sign does not match
-        default: 
+        default:
             return error > 180 ? error - 360 : (error < -180 ? error + 360 : error);
     };
 }
