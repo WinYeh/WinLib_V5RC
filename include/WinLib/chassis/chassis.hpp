@@ -173,6 +173,9 @@ struct MoveToPoseParams {
 /** Which side wall moveByWall follows. */
 enum class WallSide { LEFT, RIGHT };
 
+/** Which drivetrain side a swing LOCKS (holds stationary); the other side drives. */
+enum class DriveSide { LEFT, RIGHT };
+
 struct WallParams {
     /** Drive direction: 1 = forwards, -1 = backwards. */
     int   forwards       = 1;
@@ -272,6 +275,8 @@ public:
     void turnToPoint  (float x, float y,              int timeout, AngularParams   params = {});
     void moveToPose   (float x, float y, float theta, int timeout, MoveToPoseParams params = {});
     void moveByWall   (float distance, WallSide side, float standoff, int timeout, WallParams params = {});
+    void swingToHeading(float theta,            DriveSide lockedSide, int timeout, AngularParams params = {});
+    void swingToPoint  (float x, float y,       DriveSide lockedSide, int timeout, AngularParams params = {});
 
     // ---- opcontrol drive ----
     /**

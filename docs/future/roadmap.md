@@ -55,7 +55,7 @@ A motion that drives forward until the motors have to push *hard* — i.e. the v
 
 ### 5. `swingToPoint` / `swingToHeading`
 
-> **Status: ⬜ Not started (approved).** No declaration or `.cpp` yet, but swings are on the menu for the Override season — see CLAUDE.md's Deferred Decisions entry. Model on LemLib when built.
+> **Status: ✅ Done.** Implemented as `chassis/movement/swingToHeading.cpp` / `swingToPoint.cpp`, modeled on LemLib. Reuse `AngularParams` + `angularSettings`; a `DriveSide` enum names the locked side; the locked side is brake-held while the free side is driven by the angular PID. See `CHANGES_FROM_REFERENCE.md`.
 
 A **swing turn** locks one side of the drivetrain and only powers the other, so the robot pivots around a stationary wheel instead of spinning in place. It carves a wide arc. Useful when you want to change heading *and* move around an obstacle at the same time.
 

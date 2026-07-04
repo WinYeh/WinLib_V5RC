@@ -67,6 +67,25 @@ void autonomous()
 
 	WinLib::Pose wallPose = WinLib::getPose(false);
 	printf("after moveByWall (UNVERIFIED): (%.1f, %.1f, %.1f)\n", wallPose.x, wallPose.y, wallPose.theta);
+
+	/* swing functions to be tested here */
+	// NOTE: UNVERIFIED — swingToHeading/swingToPoint have NOT been run on the robot yet.
+	// WATCH THE SIGN FIRST: swingToHeading(90, LEFT) should pivot about the LEFT wheels and
+	// reach ~90°, NOT 270°. If it swings the wrong way, flip the free-side sign in
+	// swingToHeading.cpp (and swingToPoint.cpp). Start slow (6 V).
+	Chs->swingToHeading(90, WinLib::DriveSide::LEFT, 1500, {.maxSpeed = 6.0});
+	{
+		WinLib::Pose p = WinLib::getPose(false);
+		printf("after swingToHeading(90, LEFT) (UNVERIFIED): (%.1f, %.1f, %.1f)\n", p.x, p.y, p.theta);
+	}
+	pros::delay(500);
+
+	// swingToPoint: swing (locking the RIGHT side) until the front faces (600, 600).
+	Chs->swingToPoint(600, 600, WinLib::DriveSide::RIGHT, 2000, {.maxSpeed = 6.0});
+	{
+		WinLib::Pose p = WinLib::getPose(false);
+		printf("after swingToPoint(600, 600, RIGHT) (UNVERIFIED): (%.1f, %.1f, %.1f)\n", p.x, p.y, p.theta);
+	}
 }
 
 void opcontrol() 
