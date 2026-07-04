@@ -170,6 +170,28 @@ struct MoveToPoseParams {
     float earlyExitRange = 0;
 };
 
+/** Which side wall moveByWall follows. */
+enum class WallSide { LEFT, RIGHT };
+
+struct WallParams {
+    /** Drive direction: 1 = forwards, -1 = backwards. */
+    int   forwards       = 1;
+    /** Cap on motor power, in volts. Hardware max is 12.0 V. */
+    float maxSpeed       = 12.0;
+    /** Floor on motor power once moving, in volts. */
+    float minSpeed       = 0;
+    /** Exit early once within this distance (mm) of the target (only used if minSpeed > 0). */
+    float earlyExitRange = 0;
+    /** Wall-correction proportional gain: volts per mm of standoff error. */
+    float turnKp         = 0.05;
+    /** Wall-correction derivative gain: volts per (mm/tick). */
+    float turnKd         = 0.0;
+    /** Once |standoff error| < this (mm), hand off to heading-hold — if targetHead is set. */
+    float alignThreshold = 25.0;
+    /** Optional absolute heading (deg) to hold once aligned. Empty → stay on wall-follow. */
+    std::optional<float> targetHead = std::nullopt;
+};
+
 
 // =========================================================================
 // Chassis
@@ -249,6 +271,7 @@ public:
     void turnBy       (float angle,                   int timeout, AngularParams   params = {});
     void turnToPoint  (float x, float y,              int timeout, AngularParams   params = {});
     void moveToPose   (float x, float y, float theta, int timeout, MoveToPoseParams params = {});
+    void moveByWall   (float distance, WallSide side, float standoff, int timeout, WallParams params = {});
 
     // ---- opcontrol drive ----
     /**

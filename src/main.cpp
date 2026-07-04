@@ -56,6 +56,17 @@ void autonomous()
 
 	WinLib::Pose pose = WinLib::getPose(false);
 	printf("after moveToPose(-600, 600, 270): (%.1f, %.1f, %.1f)\n", pose.x, pose.y, pose.theta);
+
+	/* moveByWall function to be tested here !*/
+	// NOTE: UNVERIFIED — moveByWall has NOT been run on the robot yet. These are
+	// placeholder values; start slow and confirm behavior before trusting them.
+	// Drive 1000 mm forward hugging the LEFT wall at a 150 mm standoff; once within
+	// alignThreshold of the standoff, hand off to heading-hold at 270°.
+	Chs->moveByWall(1000, WinLib::WallSide::LEFT, 150, 4000,
+	                {.maxSpeed = 6.0, .minSpeed = 1.5, .earlyExitRange = 20, .targetHead = 270.f});
+
+	WinLib::Pose wallPose = WinLib::getPose(false);
+	printf("after moveByWall (UNVERIFIED): (%.1f, %.1f, %.1f)\n", wallPose.x, wallPose.y, wallPose.theta);
 }
 
 void opcontrol() 

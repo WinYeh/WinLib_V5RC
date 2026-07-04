@@ -63,7 +63,11 @@ float WinLib::clamp(float input, float max, float min)
 
 int WinLib::sgn(float input)
 {
-    return input / fabs(input); // returns -1 for negative, +1 for positive, 0 for zero
+    // Branchless sign: (input > 0) is 1 when positive, (input < 0) is 1 when
+    // negative, so the difference is +1 / -1 / 0. Unlike `input / fabs(input)`,
+    // this returns a clean 0 at input == 0 instead of 0/0 == NaN — which would
+    // otherwise poison the min-speed floor and linear_PID's P term.
+    return (input > 0) - (input < 0); // -1 for negative, +1 for positive, 0 for zero
 }
 
 /* for curvature motions (probably can be deleted) 

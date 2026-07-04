@@ -121,6 +121,17 @@ public:
      */
     void reset();
 
+    /**
+     * @brief Left/right distance-sensor reading, in mm.
+     *
+     * Returns -1 if that side has no sensor (nullptr) or the reading is
+     * invalid (non-positive, or >= NO_DETECTION i.e. nothing in range). Wall-
+     * following motions (e.g. Chassis::moveByWall) read a side wall through
+     * these instead of duplicating the sensor pointers — DSR already owns them.
+     */
+    float leftReading();
+    float rightReading();
+
 private:
     pros::Distance* front;
     pros::Distance* back;

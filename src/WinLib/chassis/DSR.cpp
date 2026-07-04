@@ -228,3 +228,18 @@ void DSR::reset() {
 
     WinLib::setPose(Pose(newX, newY, current.theta));
 }
+
+
+// Side readings for wall-following motions. Return -1 for a missing sensor or
+// an invalid reading (same validity test reset() uses), so callers only have to
+// check for a negative value.
+float DSR::leftReading() {
+    if (left == nullptr) return -1.f;
+    float r = left->get();
+    return (r > 0 && r < NO_DETECTION) ? r : -1.f;
+}
+float DSR::rightReading() {
+    if (right == nullptr) return -1.f;
+    float r = right->get();
+    return (r > 0 && r < NO_DETECTION) ? r : -1.f;
+}

@@ -1,6 +1,6 @@
 # WinLib — Future Map (Roadmap)
 
-> **Status: Planning document, not a promise.** Nothing on this page is built yet unless it links to code that exists. This is the "where WinLib is headed" map so that whoever picks the library up next season knows what's coming, in roughly what order, and *why* each piece matters. Items are listed in **development priority** — closer to the top = sooner and more certain; closer to the bottom = later and less certain.
+> **Status: Living roadmap.** Some items here have already shipped — each near-term item now carries its own **Status:** line (✅ built · 🔨 in progress · ⬜ not started · ❌ dropped). This is the "where WinLib is headed" map so that whoever picks the library up next season knows what's done, what's coming, in roughly what order, and *why* each piece matters. Items are listed in **development priority** — closer to the top = sooner and more certain; closer to the bottom = later and less certain.
 
 This page is a map, not a manual. Each entry is a short "what it is / why we want it / how it should work." When one of these actually gets built, it earns its own detailed page (like [`pidplus_and_asymptotic_gains.md`](pidplus_and_asymptotic_gains.md) in this same folder) and the entry here shrinks to a one-line "→ done, see that page."
 
@@ -14,7 +14,9 @@ These are the features we expect to build *soon*, because real autonomous routes
 
 ### 1. Verify the Boomerang controller through stress testing
 
-`boomerang`, `moveToPoint`, and `moveToPose` are the motions that steer by odometry **position** (x, y) instead of just encoder distance + IMU heading. They're declared in `chassis.hpp` but either unimplemented or unverified. Before we trust them in a match, they need **stress testing** — running them over and over, from many start positions, and measuring how far off the robot ends up.
+> **Status: ✅ Built & first-pass verified.** `moveToPoint` and `moveToPose` are implemented (`chassis/movement/moveToPoint.cpp`, `moveToPose.cpp`) and confirmed working on the real robot (commit *"tested & verified that both moveToPoint & moveToPose functions are ready to be used"*). The `boomerang` name was renamed to `moveToPose` to match LemLib. **Still ongoing:** wider cross-position stress testing as real routes get written — one clean run isn't the same as reliable-from-every-corner (see the paper-airplane analogy below).
+
+`moveToPoint` and `moveToPose` are the motions that steer by odometry **position** (x, y) instead of just encoder distance + IMU heading. Before we trust them in a match, they need **stress testing** — running them over and over, from many start positions, and measuring how far off the robot ends up.
 
 - **`moveToPoint`** — drive to an (x, y) target, heading is whatever falls out of the drive.
 - **`moveToPose`** — drive to an (x, y) target *and* arrive facing a specific heading (this is the Boomerang / "carrot point" motion).
@@ -25,29 +27,35 @@ Why "stress test" and not just "test once"? Because these motions **read odometr
 
 > **Depends on:** trustworthy odometry (see #3). If the pose is drifting, you can't tell whether a missed target is the *motion's* fault or the *odom's* fault. That's why odom stability is listed as its own bucket.
 
-### 2. Move tuning parameters into the config files first
+### 2. ~~Move tuning parameters into the config files first~~ — DROPPED
 
-Right now some motion parameters (max speed, min speed, exit ranges, PID gains) are scattered — some in `config.cpp`'s `ControllerSettings`, some passed inline at the call site in `main.cpp`. The plan: **every default lives in the config file, in one place**, so a student tunes a robot by editing one file. Individual motion calls can still *override* a default temporarily for one specific move (e.g. a slow, careful approach), but the *baseline* comes from config.
+> **Status: ❌ No longer required.** The current split — baseline gains in `config.cpp`'s `ControllerSettings`, per-move overrides at the call site — turned out to be fine in practice. Consolidating everything into config isn't worth doing; this item is closed and won't be picked up.
 
-**[Analogy]** Like the default settings on a video game. There's one settings menu where you set your normal controls (the config file). You can still tweak the sensitivity for one tricky level (the per-motion override), but you always know where "home base" for the settings is.
+~~Right now some motion parameters (max speed, min speed, exit ranges, PID gains) are scattered — some in `config.cpp`'s `ControllerSettings`, some passed inline at the call site in `main.cpp`. The plan: **every default lives in the config file, in one place**, so a student tunes a robot by editing one file.~~
 
 ### 3. Solve the odometry-instability problems
 
+> **Status: 🔨 Both pieces built; verification ongoing.** DSR and `moveByWall` are both implemented. What's left is the *trust* work — confirming they actually keep the pose honest across a full match, same stress-testing the motions need.
+
 Odometry drifts. Wheels slip, sensors jitter, and small errors add up over a 15-second match until the robot *thinks* it's somewhere it isn't. Two features attack this directly:
 
-- **DSR (Distance Sensor Reset)** — *already built* (`chassis/DSR.hpp` / `DSR.cpp`), but this is where it belongs on the map conceptually. It uses the four distance sensors + IMU heading to figure out which walls the robot sees and **snaps the odom (x, y) back to the truth**. This is the big lever for fixing drift. It needs the same stress-testing treatment as the motions.
-- **`moveByWall`** — a *new* motion to add. The idea: drive until the robot is a known distance from a wall (or gently pushes *against* one), then use that wall contact as a hard, physical "you are exactly here" reset. Walls don't drift — they're the most reliable reference point on the field.
-  - **Reference:** model this on WinYeh's own **Push Back** season repo — [WinYeh/PushBack_14683A](https://github.com/WinYeh/PushBack_14683A) (Winyeh's team 14683A repo from the Push Back season, *not* the 78181A Genesis reference).
+- **DSR (Distance Sensor Reset)** — ✅ *built* (`chassis/DSR.hpp` / `DSR.cpp`). It uses the four distance sensors + IMU heading to figure out which walls the robot sees and **snaps the odom (x, y) back to the truth**. This is the big lever for fixing drift. It still needs the same stress-testing treatment as the motions.
+- **`moveByWall`** — ✅ *built* (`chassis/movement/moveByWall.cpp`; declared on `Chassis` with a `WallSide` enum + `WallParams`). Drive until the robot is a known standoff distance from a chosen wall, then use that wall contact as a hard, physical "you are exactly here" reset. Walls don't drift — they're the most reliable reference point on the field.
+  - **Reference:** modeled on WinYeh's own **Push Back** season repo — [WinYeh/PushBack_14683A](https://github.com/WinYeh/PushBack_14683A) (Winyeh's team 14683A repo from the Push Back season, *not* the 78181A Genesis reference).
 
 **[Analogy]** Imagine walking across a dark room with your eyes closed, counting steps to guess where you are (that's raw odometry — the guess drifts a little with every step). Now imagine you reach out and touch the wall. Instantly you know *exactly* where you are, no guessing. DSR and `moveByWall` are both "touch the wall" moves for the robot.
 
 ### 4. `moveUntilVolt`
+
+> **Status: ⬜ Not started.** No `moveUntilVolt` declaration or `.cpp` yet.
 
 A motion that drives forward until the motors have to push *hard* — i.e. the voltage/current the motors draw spikes because the robot ran into something solid (a wall, a stack of blocks, a mobile goal). Instead of "drive exactly 500 mm," you say "drive forward until you hit something," which is perfect for aligning against a physical object.
 
 **[Analogy]** Like pushing a shopping cart forward with your eyes closed until it bumps the checkout counter. You don't measure the distance — you just push until you feel resistance, and now you're lined up against the counter.
 
 ### 5. `swingToPoint` / `swingToHeading`
+
+> **Status: ⬜ Not started (approved).** No declaration or `.cpp` yet, but swings are on the menu for the Override season — see CLAUDE.md's Deferred Decisions entry. Model on LemLib when built.
 
 A **swing turn** locks one side of the drivetrain and only powers the other, so the robot pivots around a stationary wheel instead of spinning in place. It carves a wide arc. Useful when you want to change heading *and* move around an obstacle at the same time.
 
@@ -60,6 +68,8 @@ A **swing turn** locks one side of the drivetrain and only powers the other, so 
 
 ### 6. Route examination — the two ways to chain motions
 
+> **Status: 🔨 Mechanisms exist; guidance ongoing.** Both hand-off styles already work (`ExitCondition` and the `minSpeed` + `earlyExitRange` early-exit). What's left is writing real routes and settling the "when to use which" guidance below into practice.
+
 When you write an autonomous *route*, you string many motions back-to-back. How one motion "hands off" to the next changes how smooth and how reliable the route is. WinLib supports two hand-off styles, and a route author should understand the trade-off:
 
 - **Exit-condition chaining (more consistent).** Each motion runs until its `ExitCondition` says "close enough, and I've *stayed* close enough for a moment," then stops fully before the next begins. Predictable and repeatable, at the cost of a tiny pause between moves.
@@ -70,6 +80,8 @@ The takeaway for route authors: **start with exit-condition chaining** to get a 
 **[Analogy]** Exit-condition chaining is coming to a **full stop** at each stop sign before driving on — safe and predictable. `minSpeed` chaining is a **rolling stop** — faster, keeps your momentum, but you have less control and it won't be identical every time.
 
 ### 7. TLDR / Documentation page for WinLib
+
+> **Status: ⬜ Not started.** No getting-started page yet. Arguably the most important remaining near-term item (see below).
 
 A single **crystal-clear** getting-started page written for a 10th grader who has never touched this library. Not a reference dump — a friendly tour: here's how you declare a robot, here's how you write an autonomous route, here's how you drive in opcontrol, here are the five motions you'll actually use. Short, concrete, example-first.
 
