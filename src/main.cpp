@@ -1,4 +1,4 @@
-#include "main.h"
+#include "main.h"						
 #include "WinLib/chassis/Odom.hpp"
 #include "config.h"                    // IWYU pragma: keep
 #include "pros/abstract_motor.hpp"	   // IWYU pragma: keep
@@ -36,6 +36,7 @@ void competition_initialize()
 void autonomous() 
 {
 	printf("auton begins---\n");
+	competition_initialize(); 
 
 	/*
 	Chs->moveToPoint(0, 600, 3000, {.maxSpeed = 12.0});
@@ -52,47 +53,47 @@ void autonomous()
 	}
 	*/
 
-	Chs->moveToPose(-600, 600, 270, 4000, {.lead = 0.3, .maxSpeed = 12., .minSpeed = 1.5, .earlyExitRange = 20});
+	// Chs->moveToPose(-600, 600, 270, 4000, {.lead = 0.3, .maxSpeed = 12., .minSpeed = 1.5, .earlyExitRange = 20});
 
-	WinLib::Pose pose = WinLib::getPose(false);
-	printf("after moveToPose(-600, 600, 270): (%.1f, %.1f, %.1f)\n", pose.x, pose.y, pose.theta);
+	// WinLib::Pose pose = WinLib::getPose(false);
+	// printf("after moveToPose(-600, 600, 270): (%.1f, %.1f, %.1f)\n", pose.x, pose.y, pose.theta);
 
 	/* moveByWall function to be tested here !*/
 	// NOTE: UNVERIFIED — moveByWall has NOT been run on the robot yet. These are
 	// placeholder values; start slow and confirm behavior before trusting them.
 	// Drive 1000 mm forward hugging the LEFT wall at a 150 mm standoff; once within
 	// alignThreshold of the standoff, hand off to heading-hold at 270°.
-	Chs->moveByWall(1000, WinLib::WallSide::LEFT, 150, 4000,
-	                {.maxSpeed = 6.0, .minSpeed = 1.5, .earlyExitRange = 20, .targetHead = 270.f});
+	// Chs->moveByWall(1000, WinLib::WallSide::LEFT, 150, 4000,
+	//                 {.maxSpeed = 6.0, .minSpeed = 1.5, .earlyExitRange = 20, .targetHead = 270.f});
 
-	WinLib::Pose wallPose = WinLib::getPose(false);
-	printf("after moveByWall (UNVERIFIED): (%.1f, %.1f, %.1f)\n", wallPose.x, wallPose.y, wallPose.theta);
+	// WinLib::Pose wallPose = WinLib::getPose(false);
+	// printf("after moveByWall (UNVERIFIED): (%.1f, %.1f, %.1f)\n", wallPose.x, wallPose.y, wallPose.theta);
 
 	/* swing functions to be tested here */
 	// NOTE: UNVERIFIED — swingToHeading/swingToPoint have NOT been run on the robot yet.
 	// WATCH THE SIGN FIRST: swingToHeading(90, LEFT) should pivot about the LEFT wheels and
 	// reach ~90°, NOT 270°. If it swings the wrong way, flip the free-side sign in
 	// swingToHeading.cpp (and swingToPoint.cpp). Start slow (6 V).
-	Chs->swingToHeading(90, WinLib::DriveSide::LEFT, 1500, {.maxSpeed = 6.0});
+	Chs->swingToHeading(90, WinLib::DriveSide::LEFT, 1500, {.maxSpeed = 12.0});
 	{
 		WinLib::Pose p = WinLib::getPose(false);
-		printf("after swingToHeading(90, LEFT) (UNVERIFIED): (%.1f, %.1f, %.1f)\n", p.x, p.y, p.theta);
+		printf("after swingToHeading(90, LEFT) (%.1f, %.1f, %.1f)\n", p.x, p.y, p.theta);
 	}
 	pros::delay(500);
 
 	// swingToPoint: swing (locking the RIGHT side) until the front faces (600, 600).
-	Chs->swingToPoint(600, 600, WinLib::DriveSide::RIGHT, 2000, {.maxSpeed = 6.0});
+	Chs->swingToPoint(0, -600, WinLib::DriveSide::RIGHT, 2000, {.maxSpeed = 12.0});
 	{
 		WinLib::Pose p = WinLib::getPose(false);
-		printf("after swingToPoint(600, 600, RIGHT) (UNVERIFIED): (%.1f, %.1f, %.1f)\n", p.x, p.y, p.theta);
+		printf("after swingToPoint(0, 0, RIGHT) (%.1f, %.1f, %.1f)\n", p.x, p.y, p.theta);
 	}
 }
 
 void opcontrol() 
 {
-	competition_initialize(); // for testing purposes
-	autonomous();		// for testing purposes 
-	float last_update = pros::millis();
+	// competition_initialize(); // for testing purposes
+	// autonomous();		// for testing purposes 
+	// float last_update = pros::millis();
 
 	// float targetHead = 180; 
 	while (true)
@@ -118,14 +119,14 @@ void opcontrol()
 		float turn     = master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
 		Chs->arcade(throttle, turn);
 
-		if (pros::millis() - last_update >= 1000)
-		{
-			WinLib::Pose pose = WinLib::getPose(false); 
-			printf("getPose() = (%.1f, %.1f, %.1f)\n", pose.x, pose.y, pose.theta);
-			last_update = pros::millis(); 
-		}
+		// if (pros::millis() - last_update >= 1000)
+		// {
+		// 	WinLib::Pose pose = WinLib::getPose(false); 
+		// 	printf("getPose() = (%.1f, %.1f, %.1f)\n", pose.x, pose.y, pose.theta);
+		// 	last_update = pros::millis(); 
+		// }
 
-		// ace::Ctr(); 
+		ace::Ctr(); 
 		// dr4b::Ctr(); 
 
 	
@@ -137,3 +138,4 @@ void opcontrol()
 		pros::delay(10); 
 	}
 }
+

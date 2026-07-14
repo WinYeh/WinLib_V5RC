@@ -29,7 +29,7 @@
 #include <iostream>
 #else /* (not) __cplusplus */
 #include <errno.h>
-#include <math.h>
+#include <math.h>       // IWYU pragma: keep
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>

@@ -140,6 +140,34 @@ float clamp(float input, float max, float min);
  */
 int sgn(float input);
 
+/**
+ * @brief Clamp a value's MAGNITUDE into a speed band, keeping its sign.
+ *
+ * This is the "shape the PID output before sending it to the motors" step that
+ * every motion shares, done in two moves:
+ *   1. clamp into [-max, +max]                         (a ceiling on speed)
+ *   2. if |result| < |min|, snap it to min * sgn(result)  (a floor on speed)
+ *
+ * So the result is always either 0 (when input is 0) or lands in one of the two
+ * bands (min..max) or (-max..-min) — never in the weak dead zone (-min..min)
+ * where the robot would stall without quite reaching its target.
+ *
+ * @param input the raw value (e.g. a PID output in volts)
+ * @param max   magnitude ceiling (maxSpeed) — clamps to +/- this
+ * @param min   magnitude floor  (minSpeed)  — bumps small values up to this
+ * @return      the sign-preserving, band-limited value
+ *
+ * @b Example
+ * @code {.cpp}
+ * clamp_Signed( 8.0, 12.0, 2.0); // returns  8.0  (already in the band)
+ * clamp_Signed(15.0, 12.0, 2.0); // returns 12.0  (clipped to max)
+ * clamp_Signed( 0.5, 12.0, 2.0); // returns  2.0  (bumped up to min)
+ * clamp_Signed(-0.5, 12.0, 2.0); // returns -2.0  (bumped up, sign kept)
+ * clamp_Signed( 0.0, 12.0, 2.0); // returns  0.0  (zero stays zero)
+ * @endcode
+ */
+float clamp_Signed(float input, float max, float min);
+
 /** for curvature motions (probably can be deleted)
  * @brief Get the signed curvature of a circle that intersects the first pose and the second pose
  *

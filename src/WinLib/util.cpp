@@ -70,6 +70,18 @@ int WinLib::sgn(float input)
     return (input > 0) - (input < 0); // -1 for negative, +1 for positive, 0 for zero
 }
 
+float WinLib::clamp_Signed(float input, float max, float min)
+{
+    // Step 1 — ceiling: keep the value inside [-max, +max].
+    input = clamp(input, max, -max);
+    // Step 2 — floor: if the value is too weak to move the robot, bump its
+    // magnitude up to `min` while keeping its sign. sgn(0) == 0, so a zero
+    // input stays exactly zero (no phantom min-speed nudge at rest).
+    if (std::fabs(input) < std::fabs(min))
+        input = min * sgn(input);
+    return input;
+}
+
 /* for curvature motions (probably can be deleted) 
 float WinLib::getCurvature(Pose pose, Pose other) 
 {

@@ -80,15 +80,9 @@ void Chassis::turnToHeading(float theta, int timeout, AngularParams params)
         // PID output, in volts.
         float output = pid.compute(error);        
 
-        // Clamp to [-maxSpeed, +maxSpeed]. maxSpeed is in volts; the
-        // hardware ceiling is 12 V, but the caller may want a slower turn.
-        output = clamp(output, params.maxSpeed, -params.maxSpeed);
-
-        // Apply the min-speed floor.
-        if (std::fabs(output) < std::fabs(params.minSpeed) )
-        {
-            output = params.minSpeed * sgn(output);
-        }
+        // Clamp into [-maxSpeed, +maxSpeed] (volts; 12 V ceiling), then floor
+        // the magnitude to minSpeed so a near-target crawl still moves.
+        output = clamp_Signed(output, params.maxSpeed, params.minSpeed);
 
         // Mix for in-place rotation (see sign convention at top of file).
         // Chassis::move_voltage signature is (left, right).

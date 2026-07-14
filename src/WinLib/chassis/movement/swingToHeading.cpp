@@ -71,9 +71,7 @@ void Chassis::swingToHeading(float theta, DriveSide lockedSide, int timeout, Ang
             break;
 
         float output = pid.compute(error);
-        output = clamp(output, params.maxSpeed, -params.maxSpeed);
-        if (std::fabs(output) < std::fabs(params.minSpeed))
-            output = params.minSpeed * sgn(output);
+        output = clamp_Signed(output, params.maxSpeed, params.minSpeed);
 
         // Swing mix: lock one side (brake-hold), drive only the other. The free-
         // side sign matches turnToHeading's rotation sense (left = +output,

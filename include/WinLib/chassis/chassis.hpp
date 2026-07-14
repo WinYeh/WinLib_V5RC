@@ -147,7 +147,7 @@ struct LateralParams {
 struct AngularParams {
     /** Which way to turn. AUTO picks the shorter direction. */
     AngularDirection direction = AngularDirection::AUTO;
-    /** For turnToPoint only: face the point with the front (true) or back (false). */
+    /** For swingToPoint only: face the point with the front (true) or back (false). */
     bool  forwards       = true;
     /** Cap on motor power, in volts. Hardware max is 12.0 V. */
     float maxSpeed       = 12.0;
@@ -272,7 +272,6 @@ public:
     void moveFor      (float distance, float theta,   int timeout, LateralParams   params = {});
     void turnToHeading(float theta,                   int timeout, AngularParams   params = {});
     void turnBy       (float angle,                   int timeout, AngularParams   params = {});
-    void turnToPoint  (float x, float y,              int timeout, AngularParams   params = {});
     void moveToPose   (float x, float y, float theta, int timeout, MoveToPoseParams params = {});
     void moveByWall   (float distance, WallSide side, float standoff, int timeout, WallParams params = {});
     void swingToHeading(float theta,            DriveSide lockedSide, int timeout, AngularParams params = {});

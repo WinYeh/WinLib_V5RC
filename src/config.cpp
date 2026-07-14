@@ -13,7 +13,7 @@
 
 /* PROS devices declaration and initialization.
 
-   Everything is grouped by robot inside its own namespace (test / dr4b / ace),
+   Everything is grouped by robot inside its own namespace (test / dr4b / ace / catherine),
    matching config.h. Each robot carries a complete, independent set of devices
    and its own WinLib::Chassis. Because the choice of active robot happens at
    runtime (via `Chs`), ALL of these objects are constructed at boot — that is
@@ -89,7 +89,7 @@ namespace test
         )
     );
 
-    // ---- Angular controller (turnToHeading / turnToPoint / moveToPose) ----
+    // ---- Angular controller (turnToHeading / moveToPose) ----
     // Error in degrees, output in volts. Gains are V per degree. The 3rd ctor arg
     // enables kP scheduling on turns: big swings get a low kP (gentle), tiny
     // corrections get a high kP (snappy). The constant kP is the fallback moveToPose uses.
@@ -253,9 +253,10 @@ namespace ace
 
     // ace subsystems
     pros::Motor           intake ({}, pros::v5::MotorGears::blue);
-    pros::MotorGroup      ladybrown ( {-19, 11}, pros::v5::MotorGears::green, pros::v5::MotorUnits::degrees);
+    pros::MotorGroup      ladybrown ( {-14, 19}, pros::v5::MotorGears::green, pros::v5::MotorUnits::degrees);
     pros::Motor           cascade (20, pros::v5::MotorGears::green, pros::v5::MotorUnits::degrees);
     pros::adi::DigitalOut claw ('A', false);
+    pros::Motor           claw_M (-12, pros::v5::MotorGears::green); 
 
     // ---- Drivetrain ----  
     WinLib::Drivetrain drivetrain {
@@ -298,4 +299,122 @@ namespace ace
     WinLib::Chassis chassis(drivetrain, odom_sensors, lateralSettings, angularSettings, /*dsr=*/ dsr);
 }
 
-/* End of PROS devices + WinLib chassis declaration and initialization. */
+
+/* ============================================================================
+   catherine robot — 2nd gen bot for Mall of America (MOA) 
+   ============================================================================ */
+namespace catherine
+{
+    // chassis
+    pros::MotorGroup chassis_left  ( {-2, -11, -12}, pros::v5::MotorGears::blue, pros::v5::MotorUnits::degrees);
+    pros::MotorGroup chassis_right ( {9, 19, 20},    pros::v5::MotorGears::blue, pros::v5::MotorUnits::degrees);
+
+    // imu — both wrapped in CustomIMU so the calibration scalar takes effect when
+    // odom reads through OdomSensors. Re-measure on YOUR physical IMU before
+    // trusting the scalar: spin the robot 10 full turns on a flat surface, read
+    // pros::c::imu_get_rotation, scalar = 3600 / measured.
+    // imu2 is a placeholder (port 0, scalar 1.0) until dual-IMU averaging is wired up.
+    WinLib::CustomIMU imu1 (15, 1.0);   // genesis measured ≈ 1.01152008991 — re-measure yours
+    WinLib::CustomIMU imu2 (0,  1.0);
+
+    // distance sensors
+    pros::Distance dist_F (0);
+    pros::Distance dist_R (0);
+    pros::Distance dist_L (0);
+
+    // catherine subsystems
+    pros::Motor           intake ({}, pros::v5::MotorGears::blue);
+    pros::Motor           cascade (20, pros::v5::MotorGears::green, pros::v5::MotorUnits::degrees);
+    pros::adi::DigitalOut claw ('A', false);
+    pros::Motor           wrist (-12, pros::v5::MotorGears::green); 
+
+    // ---- Drivetrain ----
+    // Holds raw pointers to the motor groups above. Track width and wheel
+    // dimensions describe the physical robot; horizontalDrift is the cornering
+    // grip ceiling used by moveToPose.
+    // TODO: replace placeholder dimensions with measurements from the real robot.
+    WinLib::Drivetrain drivetrain {
+        &chassis_left,
+        &chassis_right,
+        /*trackWidth=*/      12.0f,                       // inches — measure between left/right wheel centers
+        /*wheelDiameter=*/   WinLib::Omniwheel::NEW_275,  // inches
+        /*rpm=*/             450,                         // wheel rpm (motor rpm × gear ratio)
+        /*horizontalDrift=*/ 2                            // 2 for all-omni, 8 with traction wheels
+    };
+
+    // ---- Lateral controller (moveToPoint / moveFor / moveToPose) ----
+    // Error in mm, output in volts (0–12). Gains are V per mm of error.
+    // NOTE: the knee is in the motion's OWN error units. moveFor works in MOTOR
+    // degrees (via MMTodeg, ~1 motor-deg per mm on 3.25" wheels), so knee is in
+    // motor degrees, NOT mm. 
+    WinLib::ControllerSettings lateralSettings(
+        WinLib::linear_PID(
+            /*kP=*/          0.027f,   // V/mm — fallback when scheduling off
+            /*kI=*/          0,        // leave at 0 until you see steady-state drift
+            /*kD=*/          0.0000f,  // V/(mm/tick)
+            /*windupRange=*/ 50        // mm — only integrate when |error| < this (positive only)
+        ),
+        WinLib::ExitCondition(
+            /*range=*/ 10,             // degrees — settle window
+            /*time=*/  100             // ms — dwell time before declaring done
+        )
+    );
+
+    // ---- Angular controller (turnToHeading / moveToPose) ----
+    // Error in degrees, output in volts. Gains are V per degree. The 3rd ctor arg
+    // enables kP scheduling on turns: big swings get a low kP (gentle), tiny
+    // corrections get a high kP (snappy). The constant kP is the fallback moveToPose uses.
+    WinLib::ControllerSettings angularSettings(
+        WinLib::angular_PID(
+            /*kP=*/          0.21f,    // fallback when scheduling off
+            /*kI=*/          0,
+            /*kD=*/          1.2f,
+            /*windupRange=*/ 5         // deg
+        ),
+        WinLib::ExitCondition(
+            /*range=*/ 1.5,            // deg — settle window
+            /*time=*/  100             // ms — dwell time before declaring done
+        ),
+        WinLib::AsymptoticGains{
+            /*initial=*/ 0.26f,        // snappy kP for tiny corrections — TODO tune
+            /*final=*/   0.165f,       // gentle kP for big swings — TODO tune
+            /*knee=*/    90.0f,        // deg of error at curve midpoint — TODO tune
+            /*power=*/   5.f           // transition sharpness — TODO tune
+        }
+    );
+
+    // ---- OdomSensors ----
+    // Bundles the tracking wheels and the IMU for the odom module. The IMU
+    // pointer is wired to imu1; imu2 stays declared but unused until we add
+    // dual-IMU averaging.
+;
+    // mode = VPD (single vertical wheel + drivetrain). Switch to WinLib::OdomMode::TW2
+    // for the two-tracking-wheel algorithm (handy for comparing during validation).
+    WinLib::OdomSensors odom_sensors(
+        /*vertical=*/   nullptr,
+        /*horizontal=*/ nullptr,
+        /*imu=*/        &imu1,
+        /*mode=*/       WinLib::OdomMode::VPD,   // TODO: needs to create a new mode without trackingWheels (ONLY Drivetrain)
+        /*imuTrust=*/   0.98f      // IMU weight in the heading blend (0~1)
+    );
+
+    // ---- DSR (Distance Sensor Reset) ----
+    // 3 of 4 sides instrumented (no back sensor). DSR.reset() skips any null
+    // sensor. Each sensor takes (X, Y) offsets in robot frame: +y = forward,
+    // +x = the robot's LEFT side. TODO: measure each sensor's actual (X, Y).
+    WinLib::DSR dsr(
+        /*front=*/ &dist_F, /*frontOffsetX=*/ 0,    /*frontOffsetY=*/ 165,
+        /*back=*/  nullptr, /*backOffsetX=*/  0,    /*backOffsetY=*/  0,
+        /*left=*/  &dist_L, /*leftOffsetX=*/  140,  /*leftOffsetY=*/  0,
+        /*right=*/ &dist_R, /*rightOffsetX=*/ -140, /*rightOffsetY=*/ 0
+    );
+
+    // ---- Chassis (wires it all together) ----
+    WinLib::Chassis chassis(
+        drivetrain,
+        odom_sensors,
+        lateralSettings,
+        angularSettings,
+        /*dsr=*/ dsr
+    );
+}

@@ -111,7 +111,7 @@ This is the same two-layer pattern WinLib uses, but Genesis relies heavily on OO
 #### `turnToPoint(x, y, timeout, params)`
 - **What:** Rotates robot to face toward a specific (x, y) coordinate
 - **How:** Calculates target heading as `atan2(dy, dx)`, then does same thing as turnToHeading
-- **WinLib equivalent:** This is what our `turnToPoint()` will do
+- **WinLib equivalent:** **Dropped — WinLib will NOT implement this.** It was declared on `Chassis` for a while but never built, and the declaration has since been removed. If a route ever needs "face this point," compute the bearing at the call site (`atan2`) and pass it to `turnToHeading`.
 
 #### `swingToHeading / swingToPoint`
 - **What:** Turns the robot but locks one side of the drivetrain (like swinging a door on a hinge)

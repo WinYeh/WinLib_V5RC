@@ -65,6 +65,7 @@ void Chassis::moveByWall(float distance, WallSide side, float standoff,
     params.maxSpeed = std::min(params.maxSpeed, 10.5f);
 
     /* ________________________________ WALL (correction) ________________________________*/
+    float wallError   = 0;
     // PD controller on the standoff error, in mm. kI = 0 (a slowly-integrated
     // wall offset isn't wanted — we just track the wall as we pass it).
     PID wall_pid(params.turnKp, 0, params.turnKd, 0);
@@ -92,16 +93,13 @@ void Chassis::moveByWall(float distance, WallSide side, float standoff,
             break;
 
         float lateral_output = lateral_pid.compute(lateral_error);
-        lateral_output = clamp(lateral_output, params.maxSpeed, -params.maxSpeed);
-        if (std::fabs(lateral_output) < std::fabs(params.minSpeed))
-            lateral_output = params.minSpeed * sgn(lateral_output);
+        lateral_output = clamp_Signed(lateral_output, params.maxSpeed, params.minSpeed);
 
         /* ______________________________________ WALL _________________________________________*/
         // Read the chosen side wall through the DSR (it already owns the sensors).
         float d = (side == WallSide::LEFT) ? this->dsr.leftReading()
                                            : this->dsr.rightReading();
 
-        float wallError   = 0;
         float turn_output = 0;
         bool  headingMode = false;
 
@@ -162,6 +160,6 @@ void Chassis::moveByWall(float distance, WallSide side, float standoff,
     move_voltage(0, 0);
     setBrakeMode(pros::E_MOTOR_BRAKE_HOLD);
 
-    printf("moveByWall done: lat_err=%.2f heading=%.2f\n", lateral_error, getHeading());
+    printf("moveByWall done: lat_err=%.2f wall_err=%.2f, heading=%.2f\n", lateral_error, wallError, getHeading());
     printf("batteryLevel: %.0f\n\n\n", pros::c::battery_get_capacity());
 }

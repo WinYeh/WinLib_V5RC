@@ -109,15 +109,9 @@ void Chassis::moveFor(float distance, float theta, int timeout, LateralParams pa
         // PID output, in volts.
         float lateral_output = lateral_pid.compute(lateral_error);
 
-        // Clamp to [-maxSpeed, +maxSpeed]. maxSpeed is in volts; the
-        // hardware ceiling is 12 V, but the caller may want a slower turn.
-        lateral_output = clamp(lateral_output, params.maxSpeed, -params.maxSpeed);
-
-        // Apply the min-speed floor.
-        if (std::fabs(lateral_output) < std::fabs(params.minSpeed) )
-        {
-            lateral_output = params.minSpeed * sgn(lateral_output);
-        }
+        // Clamp into [-maxSpeed, +maxSpeed] (volts; 12 V ceiling), then floor
+        // the magnitude to minSpeed so a near-target crawl still moves.
+        lateral_output = clamp_Signed(lateral_output, params.maxSpeed, params.minSpeed);
 
         /* __________________________________ ANGULAR ________________________________________ */
 

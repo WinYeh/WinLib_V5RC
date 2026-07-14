@@ -39,7 +39,7 @@ void debugPID(const char* label, float error, float output, const PID& pid);
 /**
  * @brief print the robot's current pose vs the target pose to the terminal.
  *
- * For odom-based motions (turnToPoint, moveToPoint, moveToPose) where a single
+ * For odom-based motions (moveToPoint, moveToPose) where a single
  * error number doesn't show the whole picture. Prints:
  *   [pose] x=.. y=.. theta=..deg | tgt=(..,..) dist=..
  * x / y / dist are in whatever units odom reports (the same units you pass in);

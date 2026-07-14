@@ -77,9 +77,7 @@ void Chassis::swingToPoint(float x, float y, DriveSide lockedSide, int timeout, 
             break;
 
         float output = pid.compute(error);
-        output = clamp(output, params.maxSpeed, -params.maxSpeed);
-        if (std::fabs(output) < std::fabs(params.minSpeed))
-            output = params.minSpeed * sgn(output);
+        output = clamp_Signed(output, params.maxSpeed, params.minSpeed);
 
         // Swing mix: lock one side (brake-hold), drive only the other. Free-side
         // sign matches turnToHeading's rotation sense (left = +output, right = -output).

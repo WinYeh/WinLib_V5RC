@@ -93,3 +93,28 @@ namespace ace
     extern WinLib::DSR dsr;
     extern WinLib::Chassis chassis;
 }
+
+
+namespace catherine 
+{
+    extern pros::MotorGroup chassis_left, chassis_right; 
+
+    extern WinLib::CustomIMU imu1, imu2;
+    extern pros::Rotation rot_V, rot_H;
+    extern pros::Distance dist_F, dist_R, dist_L;
+
+    // catherine subsystems
+    extern pros::Motor           intake; 
+    extern pros::Motor           cascade;
+    extern pros::adi::DigitalOut claw;     
+    extern pros::Motor           wrist; 
+
+    // ---- WinLib chassis ----
+    // The Chassis bundles the Drivetrain, two ControllerSettings (lateral and
+    // angular), and the DSR. Constructed in config.cpp; used everywhere else.
+    extern WinLib::OdomSensors odom_sensors;
+    extern WinLib::Drivetrain drivetrain;
+    extern WinLib::ControllerSettings lateralSettings, angularSettings;
+    extern WinLib::DSR dsr;
+    extern WinLib::Chassis chassis;
+}

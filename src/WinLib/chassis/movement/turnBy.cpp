@@ -92,14 +92,9 @@ void Chassis::turnBy(float angle, int timeout, AngularParams params)
         // PID output, in volts.
         float output = pid.compute(error);
 
-        // Clamp to [-maxSpeed, +maxSpeed] (volts; 12 V hardware ceiling).
-        output = clamp(output, params.maxSpeed, -params.maxSpeed);
-
-        // Apply the min-speed floor.
-        if (std::fabs(output) < std::fabs(params.minSpeed))
-        {
-            output = params.minSpeed * sgn(output);
-        }
+        // Clamp into [-maxSpeed, +maxSpeed] (volts; 12 V ceiling), then floor
+        // the magnitude to minSpeed so a near-target crawl still moves.
+        output = clamp_Signed(output, params.maxSpeed, params.minSpeed);
 
         // Mix for in-place rotation. Positive output increases heading, the same
         // convention turnToHeading uses, so a positive `angle` turns that way.

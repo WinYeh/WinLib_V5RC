@@ -123,9 +123,7 @@ void Chassis::moveToPoint(float x, float y, int timeout, LateralParams params)
         // Lateral PID is tuned in motor-degree space (like moveFor), so convert the
         // mm error before feeding it in.
         float lateral_output = lateral_pid.compute(MMTodeg(lateralError));
-        lateral_output = clamp(lateral_output, params.maxSpeed, -params.maxSpeed);
-        if (std::fabs(lateral_output) < std::fabs(params.minSpeed))
-            lateral_output = params.minSpeed * sgn(lateral_output);
+        lateral_output = clamp_Signed(lateral_output, params.maxSpeed, params.minSpeed);
 
         float angular_output = angular_pid.compute(angularError);
         // Stop steering once basically on the point (see closeRadius note). Zero
