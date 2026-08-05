@@ -41,7 +41,7 @@ using namespace WinLib;
  * (sin H, cos H) and the heading toward a delta (dx, dy) is atan2(dx, dy) — x and
  * y swapped vs the textbook atan2(y, x).
  * =========================================================================== */
-void Chassis::moveToPoint(float x, float y, int timeout, LateralParams params)
+void Chassis::moveToPoint(float x, float y, int timeout, MoveToPointParams params)
 {
     /* ________________________________ INITIALIZATION _________________________________*/
     // Fresh exit condition + timer every call → clean integral / timer state.
@@ -55,10 +55,16 @@ void Chassis::moveToPoint(float x, float y, int timeout, LateralParams params)
     // Constant kP, like moveToPose (see that file for the Genesis-matching reason).
     PID         lateral_pid(lateralSettings.kP, lateralSettings.kI,
                             lateralSettings.kD, lateralSettings.windupRange);
-    angular_PID angular_pid(angularSettings.kP, angularSettings.kI,
-                            angularSettings.kD, angularSettings.windupRange);
+    // Steering (aim-at-the-point) controller. This is a trim on top of the drive,
+    // NOT a pure turn, so it does NOT reuse angularSettings directly — those turn
+    // gains are too hot here and make the robot wag on approach. The steering gains
+    // live on MoveToPointParams (turnKp/turnKd); when the caller leaves them empty
+    // they inherit angularSettings.kP/kD, so default behavior is unchanged. Pure PD
+    // (no integral, no windup) — a steering trim shouldn't accumulate error.
+    angular_PID angular_pid(params.turnKp.value_or(angularSettings.kP), 0,
+                            params.turnKd.value_or(angularSettings.kD), 0);
 
-    // LateralParams::forwards is ±1: >= 0 → arrive front-first, < 0 → back-first.
+    // MoveToPointParams::forwards is ±1: >= 0 → arrive front-first, < 0 → back-first.
     bool forwards = params.forwards >= 0;
 
     // Inside this radius we stop STEERING (but keep driving). Aiming at a point you

@@ -61,15 +61,20 @@ void Chassis::moveToPose(float x, float y, float theta, int timeout, MoveToPoseP
                           ? std::fmod(theta, 360.0f) + 360.0f
                           : std::fmod(theta, 360.0f));
 
-    // Constant kP on both axes — no asymptotic gain schedule. This matches
-    // Genesis's movePosePlus, which hardcodes setKp (setKp(1) lateral, setKp(180)
-    // turn) so its asymptotic "curve" just evaluates to a fixed constant too.
-    // Nothing stops us from scheduling the lateral kP off the initial straight-line
-    // distance later; we keep it constant to match the reference and stay simple.
+    // Constant lateral kP — no asymptotic gain schedule. This matches Genesis's
+    // movePosePlus, which hardcodes setKp (setKp(1) lateral, setKp(180) turn) so
+    // its asymptotic "curve" just evaluates to a fixed constant too. Nothing stops
+    // us from scheduling the lateral kP off the initial straight-line distance
+    // later; we keep it constant to match the reference and stay simple.
     PID         lateral_pid(lateralSettings.kP, lateralSettings.kI,
                             lateralSettings.kD, lateralSettings.windupRange);
-    angular_PID angular_pid(angularSettings.kP, angularSettings.kI,
-                            angularSettings.kD, angularSettings.windupRange);
+    // Carrot-steering controller. Like moveToPoint's steering, this is a trim on
+    // top of the drive, NOT a pure turn, so it does NOT reuse angularSettings
+    // directly (those turn gains are too hot and make the path wobble). The gains
+    // live on MoveToPoseParams (turnKp/turnKd); empty → inherit angularSettings.kP/kD,
+    // so default behavior is unchanged. Pure PD (no integral, no windup).
+    angular_PID angular_pid(params.turnKp.value_or(angularSettings.kP), 0,
+                            params.turnKd.value_or(angularSettings.kD), 0);
 
     // `close` is true whenever the robot is within this radius of the target
     // (recomputed each tick). It drives the endgame: the carrot collapses onto

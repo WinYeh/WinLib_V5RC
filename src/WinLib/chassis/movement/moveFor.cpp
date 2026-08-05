@@ -10,7 +10,7 @@
 
 using namespace WinLib;
 
-void Chassis::moveFor(float distance, float theta, int timeout, LateralParams params)
+void Chassis::moveFor(float distance, float theta, int timeout, MoveForParams params)
 {
     /* ________________________________ INITIALIZATION _________________________________*/
     // Build the exit condition + timer from the chassis's lateral settings.
@@ -52,7 +52,7 @@ void Chassis::moveFor(float distance, float theta, int timeout, LateralParams pa
                     lateralSettings.kD,
                     lateralSettings.windupRange);
     
-    // LateralParams::maxSpeed limited down to 11 volts for heading adjusment headroom
+    // MoveForParams::maxSpeed limited down to 10.5 volts for heading adjustment headroom
     params.maxSpeed = std::min(params.maxSpeed, 10.5f);
     
     /* _______________________________ ANGULAR INITIALIZATION _________________________________*/
@@ -64,15 +64,13 @@ void Chassis::moveFor(float distance, float theta, int timeout, LateralParams pa
     float angular_target = std::fmod(theta, 360.0f);
     if (angular_target < 0) angular_target += 360.0f;
 
-    // The initial heading error is the "size" of this turn. If angular settings
-    // carry a gain-schedule curve, pick kP from that size ONCE here (a big swing
-    // gets a gentle kP, a tiny correction a snappy one); otherwise fall back to
-    // the plain constant kP. Either way kP is fixed for the whole motion.
-    float angular_kP = 0.075; 
-    angular_PID angular_pid(angular_kP,
-                            angularSettings.kI,
-                            angularSettings.kD,
-                            angularSettings.windupRange);
+    // Heading-hold controller. This is a GENTLE steering trim laid on top of the
+    // straight drive — NOT a turn-in-place — so it does NOT use angularSettings
+    // (those gains are tuned for pure turns like turnToHeading and would fight the
+    // drive here). Its gains live on MoveForParams (turnKp/turnKd), so a route can
+    // tune the heading-hold without touching the turn tuning. Pure PD: no integral
+    // (it would wind up over a long straight) and no windup range.
+    angular_PID angular_pid(params.turnKp, 0, params.turnKd, 0);
     
     // One-time scheduling readout (only when debug is on).
     if (debugRefreshTime > 0)
