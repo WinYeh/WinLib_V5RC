@@ -104,7 +104,13 @@ following, deep class hierarchies) that would get in a first-year student's way.
 
 ## Status
 
-Pre-release (v0.0.1), actively developed for the 2026–2027 Override season. Core
-motions and odometry are implemented; several features are still being verified on
-the real robot. See the [roadmap](docs/future/roadmap.md) for the live status of
-every piece.
+Pre-release (v0.0.1), actively developed for the 2026–2027 Override season.
+
+The full motion set, `arcade` opcontrol, two-mode odometry (TW2 / VPD), and the
+**DSR** wall reset are all **implemented**. The drive and turn motions,
+`moveToPoint`, `moveToPose`, and both swing turns are **verified on the real
+robot**; `moveByWall`, DSR, and odometry accuracy over full-length routes are in
+the **trust-building / stress-testing** phase. Still to come: a "drive until it
+hits something" motion (`moveUntilVolt`) and a student getting-started page.
+
+See the [roadmap](docs/future/roadmap.md) for the live status of every piece.
