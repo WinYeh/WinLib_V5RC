@@ -133,17 +133,7 @@ public:
 //   chassis.moveToPoint(48, 24, 2000);
 // also works.
 
-/**
- * @brief Params for moveToPoint — drive to an (x, y) point, no final heading.
- *
- * The four base fields plus turnKp/turnKd for the aim-at-the-point steering. That
- * steering is a trim laid on top of the drive, NOT an in-place turn, so its gains
- * are kept separate from angularSettings (whose tuning is for pure turns and
- * oscillates when borrowed here). Leaving turnKp/turnKd empty inherits
- * angularSettings.kP/kD, so out-of-box behavior is unchanged; set them to dial the
- * steering down when the robot wags on its approach.
- */
-struct MoveToPointParams {
+struct LateralParams {
     /** Drive direction: 1 = forwards, -1 = backwards. */
     int   forwards       = 1;
     /** Cap on motor power, in volts. Hardware max is 12.0 V. */
@@ -152,35 +142,6 @@ struct MoveToPointParams {
     float minSpeed       = 0;
     /** Exit early once within this distance of the target (only used if minSpeed > 0). */
     float earlyExitRange = 0;
-    /** Steering proportional gain, V per degree of aim error. Empty → inherit angularSettings.kP. */
-    std::optional<float> turnKp = std::nullopt;
-    /** Steering derivative gain, V per (deg/tick). Empty → inherit angularSettings.kD. */
-    std::optional<float> turnKd = std::nullopt;
-};
-
-/**
- * @brief Params for moveFor — a straight drive that also holds a heading.
- *
- * The same four base fields, plus turnKp/turnKd for the heading-hold. That
- * heading-hold is a GENTLE steering trim laid on top of the straight drive — it
- * is NOT a pure turn, so it does not reuse angularSettings (whose gains are tuned
- * for in-place turns and would fight the drive here). Giving moveFor its own turn
- * gains lets a route tune the heading-hold without disturbing turnToHeading's
- * tuning.
- */
-struct MoveForParams {
-    /** Drive direction: 1 = forwards, -1 = backwards. */
-    int   forwards       = 1;
-    /** Cap on motor power, in volts. Hardware max is 12.0 V. */
-    float maxSpeed       = 12.0;
-    /** Floor on motor power once moving, in volts. Set non-zero to use smoother exit conditions. */
-    float minSpeed       = 0;
-    /** Exit early once within this distance of the target (only used if minSpeed > 0). */
-    float earlyExitRange = 0;
-    /** Heading-hold proportional gain: volts of turn per degree of heading error. */
-    float turnKp         = 0.075;
-    /** Heading-hold derivative gain: volts of turn per (deg/tick). */
-    float turnKd         = 0.0;
 };
 
 struct AngularParams {
@@ -207,10 +168,6 @@ struct MoveToPoseParams {
     float minSpeed       = 0;
     /** Exit early once within this distance of the target (only used if minSpeed > 0). */
     float earlyExitRange = 0;
-    /** Carrot-steering proportional gain, V per degree of aim error. Empty → inherit angularSettings.kP. */
-    std::optional<float> turnKp = std::nullopt;
-    /** Carrot-steering derivative gain, V per (deg/tick). Empty → inherit angularSettings.kD. */
-    std::optional<float> turnKd = std::nullopt;
 };
 
 /** Which side wall moveByWall follows. */
@@ -311,8 +268,8 @@ public:
     void move_percentage(float left, float right);
 
     // ---- autonomous motions (all blocking) ----
-    void moveToPoint  (float x, float y,              int timeout, MoveToPointParams params = {});
-    void moveFor      (float distance, float theta,   int timeout, MoveForParams   params = {});
+    void moveToPoint  (float x, float y,              int timeout, LateralParams   params = {});
+    void moveFor      (float distance, float theta,   int timeout, LateralParams   params = {});
     void turnToHeading(float theta,                   int timeout, AngularParams   params = {});
     void turnBy       (float angle,                   int timeout, AngularParams   params = {});
     void moveToPose   (float x, float y, float theta, int timeout, MoveToPoseParams params = {});
